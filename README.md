@@ -40,4 +40,4 @@
 ### Installation
 1. Clone the repo:
    ```bash
-   git clone [https://github.com/your-username/interval-music-app.git](https://github.com/your-username/interval-music-app.git)
+   git clone [https://github.com/your-username/interval-music-app.git](https://github.com/achlys0165/interval-music-app.git)
