@@ -65,7 +65,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-2 italic">HIMIG</h1>
-          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">Music Ministry Hub</p>
+          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">TOP - Music Ministry </p>
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group">

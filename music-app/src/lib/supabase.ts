@@ -39,10 +39,18 @@ export const signInWithGoogle = async () => {
     console.log('🔧 Dev mode: Mock Google login');
     return { data: { url: '#' }, error: null };
   }
+  
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  const redirectTo = isLocalhost
+    ? 'http://localhost:5173/'
+    : 'https://top-himig.vercel.app/'; 
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${window.location.origin}/` }
+    options: { redirectTo }
   });
+  
   return { data, error };
 };
 
