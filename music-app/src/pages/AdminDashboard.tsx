@@ -1,42 +1,54 @@
-
 import React, { useMemo } from 'react';
 import { useData } from '../App';
 import { ScheduleStatus, UserRole } from '../types';
-import { MOCK_USERS } from '../constants';
+import { supabase } from '../lib/supabase';
 import { 
-  Users, 
-  Music, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  ArrowUpRight, 
-  ShieldCheck,
-  Zap
+  Users, Music, Clock, CheckCircle, 
+  ArrowUpRight, ShieldCheck, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const AdminDashboard: React.FC = () => {
-  const { songs, schedules, notifications } = useData();
+  const { songs, schedules, notifications, loading } = useData();
+  const [musicianCount, setMusicianCount] = React.useState(0);
+
+  // Get real musician count from Supabase
+  React.useEffect(() => {
+    const fetchCount = async () => {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'musician');
+      
+      if (!error && count !== null) {
+        setMusicianCount(count);
+      }
+    };
+    fetchCount();
+  }, []);
 
   const stats = useMemo(() => {
     const pending = schedules.filter(s => s.status === ScheduleStatus.PENDING).length;
     const accepted = schedules.filter(s => s.status === ScheduleStatus.ACCEPTED).length;
-    const totalMusicians = MOCK_USERS.filter(u => u.role === UserRole.MUSICIAN).length;
 
     return {
       totalSongs: songs.length,
       pendingResponses: pending,
       acceptedAssignments: accepted,
-      totalTeam: totalMusicians
+      totalTeam: musicianCount
     };
-  }, [songs, schedules]);
+  }, [songs, schedules, musicianCount]);
 
   const recentResponses = useMemo(() => {
     return schedules
       .filter(s => s.status !== ScheduleStatus.PENDING)
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
   }, [schedules]);
+
+  if (loading) {
+    return <div className="text-white/40 text-center py-20">Loading...</div>;
+  }
 
   return (
     <div className="space-y-10">
@@ -88,29 +100,26 @@ const AdminDashboard: React.FC = () => {
            <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden">
              {recentResponses.length > 0 ? (
                <div className="divide-y divide-white/5">
-                 {recentResponses.map((res) => {
-                   const musician = MOCK_USERS.find(u => u.id === res.musicianId);
-                   return (
-                     <div key={res.id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-all">
-                       <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-black italic text-sm">
-                           {musician?.name.charAt(0)}
-                         </div>
-                         <div>
-                            <p className="font-bold text-base">{musician?.name}</p>
-                            <p className="text-[10px] uppercase tracking-widest text-white/30">{res.role} • {res.date}</p>
-                         </div>
+                 {recentResponses.map((res) => (
+                   <div key={res.id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-all">
+                     <div className="flex items-center gap-4">
+                       <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-black italic text-sm">
+                         {res.musician?.name?.charAt(0) || '?'}
                        </div>
-                       <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                         res.status === ScheduleStatus.ACCEPTED 
-                           ? 'border-green-500/20 text-green-500 bg-green-500/5' 
-                           : 'border-red-500/20 text-red-500 bg-red-500/5'
-                       }`}>
-                         {res.status}
+                       <div>
+                          <p className="font-bold text-base">{res.musician?.name || 'Unknown'}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-white/30">{res.role} • {res.date}</p>
                        </div>
                      </div>
-                   );
-                 })}
+                     <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                       res.status === ScheduleStatus.ACCEPTED 
+                         ? 'border-green-500/20 text-green-500 bg-green-500/5' 
+                         : 'border-red-500/20 text-red-500 bg-red-500/5'
+                     }`}>
+                       {res.status}
+                     </div>
+                   </div>
+                 ))}
                </div>
              ) : (
                <div className="p-20 text-center text-white/20 italic">No recent responses recorded.</div>

@@ -1,21 +1,16 @@
-
 import React, { useState, useMemo } from 'react';
 import { useData } from '../App';
 import { UserRole, ScheduleStatus } from '../types';
-import { MOCK_USERS } from '../constants';
+import { supabase } from '../lib/supabase';
 import { 
-  UserPlus, 
-  Calendar, 
-  ChevronRight, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  Plus
+  UserPlus, Calendar, ChevronRight, Loader2, 
+  CheckCircle, AlertCircle, Clock, Plus
 } from 'lucide-react';
 
 const ROLES = [
-  'Keys', 'Synth', 'Drums', 'Bass', 'Rhythm Guitar', 'Lead Guitar', 'Vocals (Lead)', 'Vocals (Backing)'
+  'Keys', 'Synth', 'Drums', 'Bass', 
+  'Rhythm Guitar', 'Lead Guitar', 
+  'Vocals (Lead)', 'Vocals (Backing)'
 ];
 
 const toISODateString = (date: Date) => {
@@ -26,9 +21,30 @@ const toISODateString = (date: Date) => {
 };
 
 const AdminSchedule: React.FC = () => {
-  const { schedules, assignMusician } = useData();
+  const { schedules, assignMusician, loading } = useData();
+  const [musicians, setMusicians] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newAssignment, setNewAssignment] = useState({ musicianId: '', date: '', role: '', songIds: [] as string[] });
+  const [newAssignment, setNewAssignment] = useState({ 
+    musicianId: '', 
+    date: '', 
+    role: '', 
+    songIds: [] as string[] 
+  });
+
+  // Fetch musicians from Supabase
+  React.useEffect(() => {
+    const fetchMusicians = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'musician');
+      
+      if (!error && data) {
+        setMusicians(data);
+      }
+    };
+    fetchMusicians();
+  }, []);
 
   const nextSundays = useMemo(() => {
     const sundays = [];
@@ -47,16 +63,22 @@ const AdminSchedule: React.FC = () => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
-  const handleAssign = (e: React.FormEvent) => {
+  const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssignment.musicianId || !newAssignment.date || !newAssignment.role) return;
+    
     setIsSubmitting(true);
-    setTimeout(() => {
-      assignMusician(newAssignment);
+    try {
+      await assignMusician(newAssignment);
       setNewAssignment({ musicianId: '', date: '', role: '', songIds: [] });
+    } finally {
       setIsSubmitting(false);
-    }, 600);
+    }
   };
+
+  if (loading) {
+    return <div className="text-white/40 text-center py-20">Loading...</div>;
+  }
 
   return (
     <div className="space-y-10">
@@ -107,26 +129,46 @@ const AdminSchedule: React.FC = () => {
               <form onSubmit={handleAssign} className="space-y-4">
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Musician</label>
-                   <select className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" value={newAssignment.musicianId} onChange={(e) => setNewAssignment({...newAssignment, musicianId: e.target.value})} required>
+                   <select 
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
+                     value={newAssignment.musicianId}
+                     onChange={(e) => setNewAssignment({...newAssignment, musicianId: e.target.value})}
+                     required
+                   >
                       <option value="">Choose...</option>
-                      {MOCK_USERS.filter(u => u.role === UserRole.MUSICIAN).map(u => (<option key={u.id} value={u.id}>{u.name}</option>))}
+                      {musicians.map(u => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
                    </select>
                  </div>
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Date</label>
-                   <select className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" value={newAssignment.date} onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} required>
+                   <select 
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
+                     value={newAssignment.date}
+                     onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})}
+                     required
+                   >
                       <option value="">Select...</option>
                       {nextSundays.map(date => <option key={date} value={date}>{date}</option>)}
                    </select>
                  </div>
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Position</label>
-                   <select className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" value={newAssignment.role} onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})} required>
+                   <select 
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
+                     value={newAssignment.role}
+                     onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})}
+                     required
+                   >
                       <option value="">Select...</option>
-                      {ROLES.map(role => (<option key={role} value={role}>{role}</option>))}
+                      {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                    </select>
                  </div>
-                 <button disabled={isSubmitting} className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg">
+                 <button 
+                   disabled={isSubmitting} 
+                   className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg"
+                 >
                    {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : 'Dispatch Task'}
                  </button>
               </form>
@@ -150,17 +192,20 @@ const AdminSchedule: React.FC = () => {
               <div className="flex-1 p-8 grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto">
                  {ROLES.map(role => {
                     const assignment = sundayAssignments.find(s => s.role === role);
-                    const musician = assignment ? MOCK_USERS.find(u => u.id === assignment.musicianId) : null;
+                    const musician = assignment?.musician;
                     return (
-                      <div key={role} className={`p-6 rounded-[2rem] border transition-all flex items-center justify-between group ${
-                        assignment ? 'bg-white/[0.03] border-white/10' : 'border-dashed border-white/5 opacity-30 hover:opacity-100 hover:bg-white/[0.01]'
-                      }`}>
+                      <div 
+                        key={role} 
+                        className={`p-6 rounded-[2rem] border transition-all flex items-center justify-between group ${
+                          assignment ? 'bg-white/[0.03] border-white/10' : 'border-dashed border-white/5 opacity-30 hover:opacity-100 hover:bg-white/[0.01]'
+                        }`}
+                      >
                          <div className="space-y-1">
                             <p className="text-[10px] uppercase font-black tracking-widest text-white/20">{role}</p>
                             {musician ? (
                               <div className="flex items-center gap-3 mt-2">
                                 <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-black italic text-xs">
-                                  {musician.name.charAt(0)}
+                                  {musician.name?.charAt(0)}
                                 </div>
                                 <p className="font-bold text-lg">{musician.name}</p>
                               </div>

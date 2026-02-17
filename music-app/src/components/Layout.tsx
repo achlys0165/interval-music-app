@@ -1,33 +1,22 @@
-
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Calendar, 
-  Music, 
-  Search, 
-  Bell, 
-  Settings, 
-  LogOut,
-  ShieldCheck,
-  Menu,
-  X,
-  PlusCircle,
-  Users
+  LayoutDashboard, Calendar, Music, Search, Bell, 
+  Settings, LogOut, ShieldCheck, Menu, X
 } from 'lucide-react';
 import { useAuth } from '../App';
 import { UserRole } from '../types';
+
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Define navigation based on role
   const adminNav = [
     { name: 'Admin Dashboard', path: '/', icon: LayoutDashboard },
     { name: 'Team Schedule', path: '/schedule', icon: Calendar },
-    { name: 'Song Vault', path: '/admin-songs', icon: PlusCircle },
+    { name: 'Song Vault', path: '/admin-songs', icon: Music },
     { name: 'Setlists', path: '/setlist', icon: Music },
     { name: 'Global Search', path: '/search', icon: Search },
     { name: 'Admin Feed', path: '/notifications', icon: Bell },
@@ -43,22 +32,15 @@ const Layout: React.FC = () => {
 
   const navItems = user?.role === UserRole.ADMIN ? adminNav : musicianNav;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden relative">
-      <aside 
-        className={`
-          ${isSidebarOpen ? 'w-64' : 'w-20'} 
-          transition-all duration-300 ease-in-out border-r border-white/10 bg-[#050505] 
-          flex flex-col h-full z-50 
-          fixed lg:relative
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
+      {/* Sidebar JSX remains the same */}
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} transition-all duration-300 ease-in-out border-r border-white/10 bg-[#050505] flex flex-col h-full z-50 fixed lg:relative ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-6 flex items-center justify-between min-h-[64px] shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="min-w-[32px] w-8 h-8 bg-white flex items-center justify-center rounded shrink-0">
@@ -143,7 +125,7 @@ const Layout: React.FC = () => {
                 <p className="text-[9px] text-white/20 uppercase tracking-widest mt-1">Himig Hub</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center text-sm font-black italic shrink-0 shadow-[0_0_10px_rgba(255,255,255,0.1)]">
-                {user?.name.charAt(0)}
+                {user?.name?.charAt(0)}
               </div>
            </div>
         </header>

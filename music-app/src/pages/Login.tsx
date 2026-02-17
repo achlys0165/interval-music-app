@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../App';
-import { Shield, Music as MusicIcon, Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
+import { 
+  Shield, 
+  Music as MusicIcon, 
+  Loader2, 
+  Mail, 
+  Lock, 
+  ChevronRight 
+} from 'lucide-react';
 
 const Login: React.FC = () => {
   const { login, loginWithGoogle } = useAuth();
@@ -26,7 +34,7 @@ const Login: React.FC = () => {
         setError('Invalid credentials. Please try again.');
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      setError(err.message || 'An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -37,15 +45,15 @@ const Login: React.FC = () => {
     setError(null);
     try {
       await loginWithGoogle();
-      // Google redirects, no need to handle success here
     } catch (err: any) {
-      setError(err.message || 'Google authentication failed.');
+      setError(err.message || 'An error occurred during Google sign-in.');
       setGoogleLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Background blobs for subtle aesthetic */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
 
@@ -139,6 +147,35 @@ const Login: React.FC = () => {
               </>
             )}
           </button>
+
+          <div className="mt-8 text-center">
+            <p className="text-[11px] text-white/30">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-white hover:text-white/80 transition-colors font-bold">
+                Create Account
+              </Link>
+            </p>
+          </div>
+
+          <div className="mt-10 flex flex-col items-center gap-4">
+             <div className="w-12 h-px bg-white/5"></div>
+             <p className="text-[9px] text-white/10 uppercase tracking-[0.4em] font-black">
+               {loading || googleLoading ? 'Authenticating Signature' : 'Authorized Personnel Only'}
+             </p>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center space-y-4">
+           <div className="flex items-center justify-center gap-8 opacity-20 hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2">
+                <Shield size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Secure Access</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MusicIcon size={12} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Ministry Ready</span>
+              </div>
+           </div>
         </div>
       </div>
     </div>

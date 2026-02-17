@@ -3,11 +3,13 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase, signInWithEmail, signInWithGoogle, signOut, subscribeToTable } from './lib/supabase';
 import { User, UserRole, Song, Schedule, Notification, ScheduleStatus, Setlist } from './types';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import MusicianDashboard from './pages/MusicianDashboard';
 import MusicianSchedule from './pages/MusicianSchedule';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminSchedule from './pages/AdminSchedule';
 import AdminSongs from './pages/AdminSongs';
+import AdminPanel from './pages/AdminPanel';
 import SetlistPage from './pages/SetlistPage';
 import SearchPage from './pages/SearchPage';
 import SettingsPage from './pages/SettingsPage';
@@ -188,7 +190,6 @@ const App: React.FC = () => {
 
   const loginWithGoogle = async (): Promise<boolean> => {
     const { error } = await signInWithGoogle();
-    // Google OAuth redirects, so we don't get immediate user data
     return !error;
   };
 
@@ -226,7 +227,7 @@ const App: React.FC = () => {
       const adminUsers = await supabase
         .from('profiles')
         .select('id')
-        .eq('role', UserRole.ADMIN);
+        .eq('role', 'admin');
       
       if (adminUsers.data) {
         await supabase.from('notifications').insert(
@@ -325,6 +326,7 @@ const App: React.FC = () => {
         <HashRouter>
           <Routes>
             <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+            <Route path="/register" element={user ? <Navigate to="/" /> : <Register />} />
             <Route element={user ? <Layout /> : <Navigate to="/login" />}>
               <Route path="/setlist" element={<SetlistPage />} />
               <Route path="/search" element={<SearchPage />} />
@@ -336,6 +338,7 @@ const App: React.FC = () => {
                   <Route path="/" element={<AdminDashboard />} />
                   <Route path="/schedule" element={<AdminSchedule />} />
                   <Route path="/admin-songs" element={<AdminSongs />} />
+                  <Route path="/admin-panel" element={<AdminPanel />} />
                 </>
               ) : (
                 <>
