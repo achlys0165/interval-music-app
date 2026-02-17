@@ -7,4 +7,5 @@ export default defineConfig({
     react(),
     tailwindcss(), // 2. Add this
   ],
+  envPrefix: 'VITE_',
 })
