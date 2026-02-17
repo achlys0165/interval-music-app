@@ -140,7 +140,7 @@ const AdminPanel: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      await updateSetlist({ date: plannerDate, songIds: plannerSongs });
+      await updateSetlist({ date: plannerDate, song_ids: plannerSongs });
     } catch (error) {
       console.error('Error saving setlist:', error);
     } finally {

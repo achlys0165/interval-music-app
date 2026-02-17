@@ -15,7 +15,7 @@ const SetlistPage: React.FC = () => {
 
   const filteredSongs = songs.filter(song => {
     const categoryMatch = activeCategory === 'All' || song.category === activeCategory;
-    const scheduleMatch = selectedDate === 'All' || setlists.find(s => s.date === selectedDate)?.songIds.includes(song.id);
+    const scheduleMatch = selectedDate === 'All' || setlists.find(s => s.date === selectedDate)?.song_ids.includes(song.id);
     return categoryMatch && scheduleMatch;
   });
 
@@ -66,9 +66,9 @@ const SetlistPage: React.FC = () => {
                     <Music size={18} />
                 </div>
                 <div className="flex gap-2">
-                  {song.referenceUrl && (
+                  {song.reference_url && (
                     <a 
-                      href={song.referenceUrl} target="_blank" rel="noreferrer" 
+                      href={song.reference_url} target="_blank" rel="noreferrer" 
                       onClick={(e) => e.stopPropagation()}
                       className="p-1.5 text-white/30 hover:text-white transition-colors"
                     >
@@ -76,7 +76,7 @@ const SetlistPage: React.FC = () => {
                     </a>
                   )}
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 border border-white/10 px-2 py-1 rounded">
-                      Key: {song.originalKey}
+                      Key: {song.original_key}
                   </span>
                 </div>
              </div>

@@ -8,7 +8,7 @@ const NotificationsPage: React.FC = () => {
   const { user } = useAuth();
   const { notifications, markNotificationsRead } = useData();
 
-  const myNotifications = notifications.filter(n => n.userId === user?.id);
+  const myNotifications = notifications.filter(n => n.user_id === user?.id);
 
   const getIcon = (message: string) => {
     if (message.includes('accepted')) return <CheckCircle2 size={18} className="text-green-500" />;

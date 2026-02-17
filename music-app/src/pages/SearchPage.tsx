@@ -14,7 +14,7 @@ const SearchPage: React.FC = () => {
     return songs.filter(s => 
       s.title.toLowerCase().includes(query.toLowerCase()) || 
       s.category.toLowerCase().includes(query.toLowerCase()) ||
-      s.originalKey.toLowerCase().includes(query.toLowerCase())
+      s.original_key.toLowerCase().includes(query.toLowerCase())
     );
   }, [query, songs]);
 
@@ -66,7 +66,7 @@ const SearchPage: React.FC = () => {
                      <span className="text-xs text-white/40">{song.category}</span>
                   </td>
                   <td className="px-8 py-6">
-                     <span className="text-sm font-mono text-white/60">{song.originalKey}</span>
+                     <span className="text-sm font-mono text-white/60">{song.original_key}</span>
                   </td>
                   <td className="px-8 py-6 text-right">
                      <button className="p-2 text-white/20 hover:text-white hover:bg-white/10 rounded-lg transition-all">
