@@ -31,7 +31,7 @@ const Dashboard: React.FC = () => {
 
   // Get all schedules for the current user that aren't rejected
   const mySchedules = useMemo(() => 
-    schedules.filter(s => s.musicianId === user?.id && s.status !== ScheduleStatus.REJECTED),
+    schedules.filter(s => s.musician_id === user?.id && s.status !== ScheduleStatus.REJECTED),
     [schedules, user?.id]
   );
 

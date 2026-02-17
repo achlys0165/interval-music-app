@@ -1,16 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useData } from '../App';
 import { UserRole, ScheduleStatus } from '../types';
 import { supabase } from '../lib/supabase';
 import { 
-  UserPlus, Calendar, ChevronRight, Loader2, 
-  CheckCircle, AlertCircle, Clock, Plus
+  UserPlus, 
+  Calendar, 
+  ChevronRight, 
+  Loader2, 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  Plus
 } from 'lucide-react';
 
 const ROLES = [
-  'Keys', 'Synth', 'Drums', 'Bass', 
-  'Rhythm Guitar', 'Lead Guitar', 
-  'Vocals (Lead)', 'Vocals (Backing)'
+  'Keys', 'Synth', 'Drums', 'Bass', 'Rhythm Guitar', 'Lead Guitar', 'Vocals (Lead)', 'Vocals (Backing)'
 ];
 
 const toISODateString = (date: Date) => {
@@ -25,26 +29,11 @@ const AdminSchedule: React.FC = () => {
   const [musicians, setMusicians] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAssignment, setNewAssignment] = useState({ 
-    musicianId: '', 
+    musician_id: '', 
     date: '', 
     role: '', 
-    songIds: [] as string[] 
+    song_ids: [] as string[] 
   });
-
-  // Fetch musicians from Supabase
-  React.useEffect(() => {
-    const fetchMusicians = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'musician');
-      
-      if (!error && data) {
-        setMusicians(data);
-      }
-    };
-    fetchMusicians();
-  }, []);
 
   const nextSundays = useMemo(() => {
     const sundays = [];
@@ -63,21 +52,41 @@ const AdminSchedule: React.FC = () => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
+  useEffect(() => {
+    const fetchMusicians = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'musician');
+      
+      if (!error && data) {
+        setMusicians(data);
+      }
+    };
+    fetchMusicians();
+  }, []);
+
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssignment.musicianId || !newAssignment.date || !newAssignment.role) return;
+    if (!newAssignment.musician_id || !newAssignment.date || !newAssignment.role) return;
     
     setIsSubmitting(true);
     try {
       await assignMusician(newAssignment);
-      setNewAssignment({ musicianId: '', date: '', role: '', songIds: [] });
+      setNewAssignment({ musician_id: '', date: '', role: '', song_ids: [] });
+    } catch (error) {
+      console.error('Error assigning musician:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   if (loading) {
-    return <div className="text-white/40 text-center py-20">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+      </div>
+    );
   }
 
   return (
@@ -130,9 +139,9 @@ const AdminSchedule: React.FC = () => {
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Musician</label>
                    <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
-                     value={newAssignment.musicianId}
-                     onChange={(e) => setNewAssignment({...newAssignment, musicianId: e.target.value})}
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
+                     value={newAssignment.musician_id} 
+                     onChange={(e) => setNewAssignment({...newAssignment, musician_id: e.target.value})} 
                      required
                    >
                       <option value="">Choose...</option>
@@ -144,9 +153,9 @@ const AdminSchedule: React.FC = () => {
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Date</label>
                    <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
-                     value={newAssignment.date}
-                     onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})}
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
+                     value={newAssignment.date} 
+                     onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} 
                      required
                    >
                       <option value="">Select...</option>
@@ -156,9 +165,9 @@ const AdminSchedule: React.FC = () => {
                  <div className="space-y-2">
                    <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Position</label>
                    <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm"
-                     value={newAssignment.role}
-                     onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})}
+                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
+                     value={newAssignment.role} 
+                     onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})} 
                      required
                    >
                       <option value="">Select...</option>

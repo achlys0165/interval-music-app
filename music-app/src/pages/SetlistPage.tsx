@@ -24,7 +24,7 @@ const SetlistPage: React.FC = () => {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold italic tracking-tighter">SUNDAY SETLISTS</h1>
-          <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Planned repertoire for the month ahead</p>
+          <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Planned Setlist for the month ahead</p>
         </div>
         <div className="flex items-center gap-3">
             <div className="relative">

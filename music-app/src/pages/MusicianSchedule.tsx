@@ -14,7 +14,7 @@ const MusicianSchedule: React.FC = () => {
   const { schedules, updateScheduleStatus } = useData();
 
   const mySchedules = schedules
-    .filter(s => s.musicianId === user?.id)
+    .filter(s => s.musician_id === user?.id)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return (

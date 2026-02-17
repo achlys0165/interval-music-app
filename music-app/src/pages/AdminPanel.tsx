@@ -39,11 +39,9 @@ const AdminPanel: React.FC = () => {
   const { songs, setlists, schedules, addSong, assignMusician, updateSetlist, loading } = useData();
   const [activeTab, setActiveTab] = useState<'roster' | 'assign' | 'planner' | 'songs'>('roster');
   
-  // State for musicians (fetched from Supabase)
   const [musicians, setMusicians] = useState<any[]>([]);
   const [musiciansLoading, setMusiciansLoading] = useState(false);
   
-  // Form States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newSong, setNewSong] = useState({ 
     title: '', 
@@ -55,13 +53,12 @@ const AdminPanel: React.FC = () => {
   });
   
   const [newAssignment, setNewAssignment] = useState({ 
-    musicianId: '', 
+    musician_id: '', 
     date: '', 
     role: '', 
-    songIds: [] as string[] 
+    song_ids: [] as string[] 
   });
   
-  // Filtering States
   const nextSundays = useMemo(() => {
     const sundays = [];
     const date = new Date();
@@ -77,7 +74,6 @@ const AdminPanel: React.FC = () => {
   const [plannerDate, setPlannerDate] = useState('');
   const [plannerSongs, setPlannerSongs] = useState<string[]>([]);
 
-  // Fetch musicians from Supabase
   useEffect(() => {
     const fetchMusicians = async () => {
       setMusiciansLoading(true);
@@ -94,7 +90,6 @@ const AdminPanel: React.FC = () => {
     fetchMusicians();
   }, []);
 
-  // Computed Roster for the selected Sunday
   const currentSundayRoster = useMemo(() => {
     return schedules.filter(s => s.date === selectedRosterDate);
   }, [schedules, selectedRosterDate]);
@@ -121,12 +116,12 @@ const AdminPanel: React.FC = () => {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssignment.musicianId || !newAssignment.date || !newAssignment.role) return;
+    if (!newAssignment.musician_id || !newAssignment.date || !newAssignment.role) return;
     
     setIsSubmitting(true);
     try {
       await assignMusician(newAssignment);
-      setNewAssignment({ musicianId: '', date: '', role: '', songIds: [] });
+      setNewAssignment({ musician_id: '', date: '', role: '', song_ids: [] });
     } catch (error) {
       console.error('Error assigning musician:', error);
     } finally {
@@ -150,9 +145,7 @@ const AdminPanel: React.FC = () => {
 
   const toggleSongInPlanner = (id: string) => {
     setPlannerSongs(prev => 
-      prev.includes(id) 
-        ? prev.filter(sid => sid !== id) 
-        : [...prev, id]
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
     );
   };
 
@@ -240,8 +233,8 @@ const AdminPanel: React.FC = () => {
                     <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Select Musician</label>
                     <select 
                       className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
-                      value={newAssignment.musicianId} 
-                      onChange={(e) => setNewAssignment({...newAssignment, musicianId: e.target.value})} 
+                      value={newAssignment.musician_id} 
+                      onChange={(e) => setNewAssignment({...newAssignment, musician_id: e.target.value})} 
                       required
                     >
                        <option value="">Choose musician...</option>
@@ -274,10 +267,7 @@ const AdminPanel: React.FC = () => {
                        {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
                     </select>
                   </div>
-                  <button 
-                    disabled={isSubmitting} 
-                    className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2"
-                  >
+                  <button disabled={isSubmitting} className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                     {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : 'Dispatch Assignment'}
                   </button>
                </form>
@@ -322,10 +312,7 @@ const AdminPanel: React.FC = () => {
                     ))}
                   </div>
                 </div>
-                <button 
-                  disabled={isSubmitting || !plannerDate} 
-                  className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2"
-                >
+                <button disabled={isSubmitting || !plannerDate} className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : 'Lock Setlist'}
                 </button>
               </form>
@@ -353,7 +340,6 @@ const AdminPanel: React.FC = () => {
                     value={newSong.original_key} 
                     onChange={(e) => setNewSong({...newSong, original_key: e.target.value})}
                   >
-                    <option value="">Key...</option>
                     {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map(k => (
                       <option key={k} value={k}>{k}</option>
                     ))}
@@ -366,10 +352,7 @@ const AdminPanel: React.FC = () => {
                     {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
-                <button 
-                  disabled={isSubmitting} 
-                  className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2"
-                >
+                <button disabled={isSubmitting} className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : 'Add to Vault'}
                 </button>
               </form>
@@ -459,7 +442,6 @@ const AdminPanel: React.FC = () => {
                         {activeTab === 'songs' ? 'Vault Overview' : activeTab === 'assign' ? 'Current Assignments' : 'Setlist History'}
                       </h2>
                    </div>
-                   
                    {activeTab === 'assign' && schedules.slice().reverse().map(s => (
                      <div key={s.id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                         <div className="flex items-center gap-6">

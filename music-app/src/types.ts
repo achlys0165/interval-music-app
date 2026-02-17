@@ -59,6 +59,7 @@ export interface Notification {
   id: string;
   user_id: string;             // Changed from userId
   message: string;
+  date: string;
   read: boolean;
   created_at: string;          // Changed from date
 }

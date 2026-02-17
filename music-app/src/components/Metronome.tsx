@@ -1,12 +1,10 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Play, Square, Volume2, Eye, Plus, Minus, Zap, Maximize2, 
   Minimize2, Sun, ChevronUp, ChevronDown, Edit2, Mic, 
-  Sparkles, Waves, Check, X as CloseIcon
+  Check, X as CloseIcon
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 
 interface MetronomeProps {
   initialBpm?: number;
@@ -28,7 +26,6 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm = 120, songTitle }) =>
 
   const [isListening, setIsListening] = useState(false);
   const [detectedBpm, setDetectedBpm] = useState<number | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
   
   const audioContext = useRef<AudioContext | null>(null);
   const nextNoteTime = useRef(0);
@@ -173,29 +170,6 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm = 120, songTitle }) =>
     setDetectedBpm(null);
   };
 
-  const suggestBpmWithAi = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!songTitle || isAiLoading) return;
-    setIsAiLoading(true);
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `What is the standard BPM (tempo) for the Christian worship song "${songTitle}"? Respond ONLY with the number (e.g., 76). If unknown, respond with 120.`,
-      });
-      const suggestedStr = (response.text || "").trim();
-      const suggested = parseInt(suggestedStr);
-      if (!isNaN(suggested)) {
-        updateBpm(suggested);
-      }
-    } catch (err) {
-      console.error("AI Tempo Error", err);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleBpmInputSubmit = () => {
     const val = parseInt(tempBpm);
     if (!isNaN(val)) updateBpm(val);
@@ -205,7 +179,10 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm = 120, songTitle }) =>
 
   const handleBpmInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleBpmInputSubmit();
-    else if (e.key === 'Escape') { setTempBpm(bpm.toString()); setIsEditingBpm(false); }
+    else if (e.key === 'Escape') { 
+      setTempBpm(bpm.toString()); 
+      setIsEditingBpm(false); 
+    }
   };
 
   const GlobalFlash = () => {
@@ -263,9 +240,7 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm = 120, songTitle }) =>
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={suggestBpmWithAi} disabled={isAiLoading} className={`p-2 rounded-lg transition-colors bg-white/5 text-white hover:bg-white hover:text-black ${isAiLoading ? 'animate-pulse' : ''}`}>
-              <Sparkles size={viewMode === 'fullscreen' ? 24 : 16} />
-            </button>
+            {/* REMOVED: AI Suggest BPM button */}
             <button onClick={() => setUseSound(!useSound)} className={`p-2 rounded-lg transition-colors ${useSound ? 'bg-white/10 text-white' : 'text-white/20'}`}>
               <Volume2 size={viewMode === 'fullscreen' ? 24 : 16} />
             </button>
@@ -283,7 +258,7 @@ const Metronome: React.FC<MetronomeProps> = ({ initialBpm = 120, songTitle }) =>
           
           {isListening && (
             <div className="absolute top-6 flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest animate-bounce z-20">
-              <Waves size={14} className="animate-pulse" /> Listening to Rehearsal...
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" /> Listening to Rehearsal...
             </div>
           )}
 
