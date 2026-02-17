@@ -1,13 +1,16 @@
+// ============================================
+// UPDATED TYPES - Snake case to match Supabase
+// ============================================
 
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  MUSICIAN = 'MUSICIAN'
+  ADMIN = 'admin',
+  MUSICIAN = 'musician'
 }
 
 export enum ScheduleStatus {
-  PENDING = 'PENDING',
-  ACCEPTED = 'ACCEPTED',
-  REJECTED = 'REJECTED'
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected'
 }
 
 export interface User {
@@ -16,38 +19,46 @@ export interface User {
   email: string;
   role: UserRole;
   instrument?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Song {
   id: string;
   title: string;
-  originalKey: string;
-  category: 'Choir' | 'Worship' | 'Special';
+  original_key: string;        // Changed from originalKey
+  category: 'Worship' | 'Choir' | 'Special';
   tempo?: string;
+  reference_url?: string;      // Changed from referenceUrl
   lyrics?: string;
-  referenceUrl?: string;
-}
-
-export interface Setlist {
-  id: string;
-  date: string;
-  songIds: string[];
-  theme?: string;
+  created_by?: string;         // Changed from createdBy
+  created_at?: string;
 }
 
 export interface Schedule {
   id: string;
   date: string;
-  musicianId: string;
+  musician_id: string;         // Changed from musicianId
   role: string;
   status: ScheduleStatus;
-  songIds: string[];
+  song_ids?: string[];         // Changed from songIds
+  created_at?: string;
+  // Joined data from Supabase
+  musician?: User;             // This comes from the join in queries
+}
+
+export interface Setlist {
+  id: string;
+  date: string;
+  song_ids: string[];          // Changed from songIds
+  theme?: string;
+  created_at?: string;
 }
 
 export interface Notification {
   id: string;
-  userId: string;
+  user_id: string;             // Changed from userId
   message: string;
-  date: string;
   read: boolean;
+  created_at: string;          // Changed from date
 }
