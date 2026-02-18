@@ -136,21 +136,6 @@ const Login: React.FC = () => {
             <div className="flex-1 h-px bg-white/5"></div>
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-3 py-4 bg-black border border-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-white/5 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {googleLoading ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <>
-                <div className="w-5 h-5 flex items-center justify-center border border-white/40 rounded-sm text-[10px] leading-none mr-1">G</div>
-                Continue with Google
-              </>
-            )}
-          </button>
-
           <div className="mt-8 text-center">
             <p className="text-[11px] text-white/30">
               Don't have an account?{' '}
