@@ -5,7 +5,7 @@ import {
   Shield, 
   Music as MusicIcon, 
   Loader2, 
-  Mail, 
+  UserCircle, 
   Lock, 
   ChevronRight 
 } from 'lucide-react';
@@ -15,13 +15,13 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+    if (!username || !password) {
+      setError('Please enter both username and password.');
       return;
     }
 
@@ -29,8 +29,8 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
-      console.log('Attempting login with:', email);
-      const success = await login(email, password);
+      console.log('Attempting login with username:', username);
+      const success = await login(username, password);
       console.log('Login success:', success);
       
       if (!success) {
@@ -38,7 +38,7 @@ const Login: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'An unexpected error occurred. Please try again later.');
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -78,16 +78,16 @@ const Login: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">Email Address</label>
+              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">Username</label>
               <div className="relative group/input">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
+                <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
                 <input 
-                  type="email" 
+                  type="text" 
                   autoFocus
-                  placeholder="name@ministry.com"
+                  placeholder="johnsmith"
                   className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
                   disabled={loading || googleLoading}
                 />
               </div>

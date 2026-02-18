@@ -20,7 +20,7 @@ import Layout from './components/Layout';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -65,8 +65,10 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Fetch user profile from Supabase
+  // Fetch user profile by ID
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
+    console.log('Fetching profile for ID:', userId);
+    
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -74,10 +76,30 @@ const App: React.FC = () => {
       .single();
     
     if (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error fetching profile:', error.message);
       return null;
     }
     
+    console.log('Profile found:', data);
+    return data as User;
+  };
+
+  // Fetch user profile by username (for login)
+  const fetchUserProfileByUsername = async (username: string): Promise<User | null> => {
+    console.log('Fetching profile for username:', username);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username.toLowerCase())
+      .single();
+    
+    if (error) {
+      console.error('Error fetching profile by username:', error.message);
+      return null;
+    }
+    
+    console.log('Profile found by username:', data);
     return data as User;
   };
 
@@ -179,64 +201,37 @@ const App: React.FC = () => {
     };
   }, [user, fetchAllData]);
 
-const login = async (email: string, password: string): Promise<boolean> => {
-  console.log('Login attempt:', email);
-  
-  const { data, error } = await signInWithEmail(email, password);
-  
-  if (error) {
-    console.error('Sign in error:', error.message);
-    return false;
-  }
-  
-  if (!data.user) {
-    console.error('No user returned');
-    return false;
-  }
-  
-  console.log('Auth successful, user ID:', data.user.id);
-  
-  // Try to fetch profile from database first
-  let profile = await fetchUserProfile(data.user.id);
-  
-  if (!profile) {
-    console.log('No profile found in DB, creating from auth metadata...');
+  // Login with username and password
+  const login = async (username: string, password: string): Promise<boolean> => {
+    console.log('Login attempt with username:', username);
     
-    // Get metadata safely - only full_name is guaranteed
-    const userData = data.user.user_metadata as { full_name?: string };
+    // First, get the user's email from their username
+    const profile = await fetchUserProfileByUsername(username);
     
-    const newProfile: User = {
-      id: data.user.id,
-      email: data.user.email || email,
-      name: userData?.full_name || email.split('@')[0],
-      role: UserRole.MUSICIAN,
-      instrument: '' // Default empty, not from metadata
-    };
-    
-    // Try to insert profile
-    const { error: insertError } = await supabase
-      .from('profiles')
-      .insert([{
-        id: newProfile.id,
-        name: newProfile.name,
-        email: newProfile.email,
-        role: newProfile.role,
-        instrument: newProfile.instrument,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }]);
-    
-    if (insertError) {
-      console.warn('Could not create profile in DB:', insertError.message);
+    if (!profile) {
+      console.error('No user found with username:', username);
+      return false;
     }
     
-    profile = newProfile;
-  }
-  
-  console.log('Setting user profile:', profile);
-  setUser(profile);
-  return true;
-};
+    console.log('Found profile, attempting auth with email:', profile.email);
+    
+    // Now login with email + password
+    const { data, error } = await signInWithEmail(profile.email || '', password);
+    
+    if (error) {
+      console.error('Sign in error:', error.message);
+      return false;
+    }
+    
+    if (!data.user) {
+      console.error('No user returned from auth');
+      return false;
+    }
+    
+    console.log('Auth successful, setting user:', profile);
+    setUser(profile);
+    return true;
+  };
 
   const loginWithGoogle = async (): Promise<boolean> => {
     const { error } = await signInWithGoogle();

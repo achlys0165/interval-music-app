@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, signUpWithEmail } from '../lib/supabase';
 import { UserRole } from '../types';
 import { 
   Mail, 
@@ -9,7 +9,8 @@ import {
   Loader2, 
   ChevronRight, 
   ArrowLeft,
-  CheckCircle
+  CheckCircle,
+  UserCircle
 } from 'lucide-react';
 
 const Register: React.FC = () => {
@@ -20,16 +21,17 @@ const Register: React.FC = () => {
   
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
+    instrument: '',
     password: '',
-    confirmPassword: '',
-    instrument: ''
+    confirmPassword: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.password) {
+    if (!formData.name || !formData.username || !formData.email || !formData.password) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -44,67 +46,36 @@ const Register: React.FC = () => {
       return;
     }
 
+    if (formData.username.length < 3) {
+      setError('Username must be at least 3 characters.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      console.log('Step 1: Creating auth user...');
+      console.log('Creating user with username:', formData.username);
       
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.name,
-            instrument: formData.instrument
-          }
+      const { data: authData, error: authError } = await signUpWithEmail(
+        formData.email,
+        formData.password,
+        {
+          full_name: formData.name,
+          username: formData.username.toLowerCase(),
+          instrument: formData.instrument
         }
-      });
+      );
 
       console.log('Auth response:', authData, authError);
 
       if (authError) throw authError;
       
       if (!authData.user) {
-        throw new Error('User creation failed - no user returned from auth');
+        throw new Error('User creation failed');
       }
 
-      const userId = authData.user.id;
-      console.log('Step 2: Auth user created with ID:', userId);
-
-      console.log('Step 3: Creating profile in database...');
-      
-      const profileData = {
-        id: userId,
-        name: formData.name,
-        email: formData.email,
-        role: UserRole.MUSICIAN,
-        instrument: formData.instrument || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([profileData]);
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            name: formData.name,
-            instrument: formData.instrument || null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId);
-          
-        if (updateError) {
-          console.error('Profile update also failed:', updateError);
-        }
-      }
-
-      console.log('Step 4: Profile created/updated successfully');
+      console.log('User created successfully:', authData.user.id);
       setSuccess(true);
       
       setTimeout(() => {
@@ -128,8 +99,7 @@ const Register: React.FC = () => {
           </div>
           <h1 className="text-3xl font-black italic tracking-tighter mb-4">Account Created!</h1>
           <p className="text-white/40 mb-8">
-            Welcome to Himig! Your account has been created successfully. 
-            Redirecting to login...
+            Welcome to Himig! You can now log in with your username and password.
           </p>
           <Link 
             to="/login" 
@@ -193,7 +163,26 @@ const Register: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
-                Email Address *
+                Username *
+              </label>
+              <div className="relative group/input">
+                <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="johnsmith"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})}
+                  disabled={loading}
+                  required
+                />
+              </div>
+              <p className="text-[10px] text-white/20 ml-1">Used for login. No spaces.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
+                Email *
               </label>
               <div className="relative group/input">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
@@ -211,7 +200,7 @@ const Register: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
-                Primary Instrument <span className="text-white/20">(Optional)</span>
+                Primary Instrument
               </label>
               <div className="relative group/input">
                 <select 
