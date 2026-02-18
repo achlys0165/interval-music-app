@@ -130,12 +130,6 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          <div className="my-8 flex items-center gap-4">
-            <div className="flex-1 h-px bg-white/5"></div>
-            <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px bg-white/5"></div>
-          </div>
-
           <div className="mt-8 text-center">
             <p className="text-[11px] text-white/30">
               Don't have an account?{' '}
