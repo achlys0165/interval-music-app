@@ -65,6 +65,11 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
+  // Generate fake auth email from username
+  const generateAuthEmail = (username: string): string => {
+    return `${username.toLowerCase()}@himig.internal`;
+  };
+
   // Fetch user profile by ID
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     console.log('Fetching profile for ID:', userId);
@@ -84,7 +89,7 @@ const App: React.FC = () => {
     return data as User;
   };
 
-  // Fetch user profile by username (for login)
+  // Fetch user profile by username
   const fetchUserProfileByUsername = async (username: string): Promise<User | null> => {
     console.log('Fetching profile for username:', username);
     
@@ -99,7 +104,7 @@ const App: React.FC = () => {
       return null;
     }
     
-    console.log('Profile found by username:', data);
+    console.log('Profile found:', data);
     return data as User;
   };
 
@@ -202,21 +207,16 @@ const App: React.FC = () => {
   }, [user, fetchAllData]);
 
   // Login with username and password
+// Login with username and password
   const login = async (username: string, password: string): Promise<boolean> => {
     console.log('Login attempt with username:', username);
     
-    // First, get the user's email from their username
-    const profile = await fetchUserProfileByUsername(username);
+    // Generate the fake email used during registration
+    const authEmail = generateAuthEmail(username);
+    console.log('Using auth email:', authEmail);
     
-    if (!profile) {
-      console.error('No user found with username:', username);
-      return false;
-    }
-    
-    console.log('Found profile, attempting auth with email:', profile.email);
-    
-    // Now login with email + password
-    const { data, error } = await signInWithEmail(profile.email || '', password);
+    // Login with fake email + password
+    const { data, error } = await signInWithEmail(authEmail, password);
     
     if (error) {
       console.error('Sign in error:', error.message);
@@ -228,7 +228,31 @@ const App: React.FC = () => {
       return false;
     }
     
-    console.log('Auth successful, setting user:', profile);
+    // Fetch full profile to get real email and other data
+    const profile = await fetchUserProfileByUsername(username);
+    
+    if (!profile) {
+      console.error('Profile not found for username:', username);
+      // Still set basic user from auth with proper type casting
+      const userMetadata = data.user.user_metadata as { 
+        full_name?: string; 
+        username?: string; 
+        real_email?: string; 
+        instrument?: string; 
+      };
+      
+      setUser({
+        id: data.user.id,
+        username: username,
+        name: userMetadata?.full_name || username,
+        email: userMetadata?.real_email || '',
+        role: UserRole.MUSICIAN,
+        instrument: userMetadata?.instrument || ''
+      });
+      return true;
+    }
+    
+    console.log('Login successful, setting user:', profile);
     setUser(profile);
     return true;
   };

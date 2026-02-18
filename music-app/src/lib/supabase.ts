@@ -21,6 +21,11 @@ const isDevMode = () => {
     !supabaseUrl?.includes('supabase.co');
 };
 
+// Generate fake email from username for Supabase Auth
+const generateAuthEmail = (username: string): string => {
+  return `${username.toLowerCase()}@himig.internal`;
+};
+
 export const signInWithEmail = async (email: string, password: string) => {
   if (isDevMode()) {
     console.log('🔧 Dev mode: Mock login');
@@ -39,25 +44,41 @@ export const signInWithEmail = async (email: string, password: string) => {
   return { data, error };
 };
 
-export const signUpWithEmail = async (email: string, password: string, metadata: any) => {
+// Sign up with username - uses fake email for auth, real email stored in metadata
+export const signUpWithUsername = async (
+  username: string, 
+  password: string, 
+  realEmail: string,
+  metadata: { full_name: string; instrument?: string }
+) => {
   if (isDevMode()) {
     console.log('🔧 Dev mode: Mock signup');
     return { 
       data: { 
         user: { 
           id: 'dev-user-' + Date.now(), 
-          email: email,
-          user_metadata: metadata
+          email: generateAuthEmail(username),
+          user_metadata: { ...metadata, username, real_email: realEmail }
         } 
       }, 
       error: null 
     };
   }
+  
+  const authEmail = generateAuthEmail(username);
+  
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: authEmail,  // Fake email for auth
     password,
-    options: { data: metadata }
+    options: { 
+      data: { 
+        ...metadata,
+        username,
+        real_email: realEmail  // Real email in metadata for trigger
+      } 
+    }
   });
+  
   return { data, error };
 };
 

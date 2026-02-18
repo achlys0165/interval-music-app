@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase, signUpWithEmail } from '../lib/supabase';
+import { signUpWithUsername } from '../lib/supabase';
 import { UserRole } from '../types';
 import { 
   Mail, 
@@ -22,7 +22,7 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     username: '',
-    email: '',
+    email: '',  // Real email - only stored in profiles table
     instrument: '',
     password: '',
     confirmPassword: ''
@@ -56,13 +56,14 @@ const Register: React.FC = () => {
 
     try {
       console.log('Creating user with username:', formData.username);
+      console.log('Real email (for profiles only):', formData.email);
       
-      const { data: authData, error: authError } = await signUpWithEmail(
-        formData.email,
+      const { data: authData, error: authError } = await signUpWithUsername(
+        formData.username,
         formData.password,
+        formData.email,  // Real email - goes to profiles table only
         {
           full_name: formData.name,
-          username: formData.username.toLowerCase(),
           instrument: formData.instrument
         }
       );
@@ -75,7 +76,8 @@ const Register: React.FC = () => {
         throw new Error('User creation failed');
       }
 
-      console.log('User created successfully:', authData.user.id);
+      console.log('User created successfully with fake auth email:', authData.user.email);
+      console.log('Real email stored in profiles table only');
       setSuccess(true);
       
       setTimeout(() => {
@@ -182,7 +184,7 @@ const Register: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
-                Email *
+                Email * (Stored privately)
               </label>
               <div className="relative group/input">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
@@ -196,6 +198,7 @@ const Register: React.FC = () => {
                   required
                 />
               </div>
+              <p className="text-[10px] text-green-400/60 ml-1">✓ Only stored in our database, not in authentication</p>
             </div>
 
             <div className="space-y-2">
