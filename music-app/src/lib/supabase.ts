@@ -21,7 +21,7 @@ const isDevMode = () => {
     !supabaseUrl?.includes('supabase.co');
 };
 
-// Generate fake email from username for Supabase Auth
+// Generate fake auth email from username
 const generateAuthEmail = (username: string): string => {
   return `${username.toLowerCase()}@himig.internal`;
 };
@@ -67,19 +67,38 @@ export const signUpWithUsername = async (
   
   const authEmail = generateAuthEmail(username);
   
-  const { data, error } = await supabase.auth.signUp({
-    email: authEmail,  // Fake email for auth
-    password,
-    options: { 
-      data: { 
-        ...metadata,
-        username,
-        real_email: realEmail  // Real email in metadata for trigger
-      } 
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email: authEmail,
+      password,
+      options: { 
+        data: { 
+          ...metadata,
+          username,
+          real_email: realEmail
+        } 
+      }
+    });
+    
+    // Handle rate limit error specifically
+    if (error?.message?.includes('rate limit')) {
+      console.error('Rate limit hit. Please wait 1 hour before trying again.');
+      return { 
+        data: null, 
+        error: { 
+          message: 'Too many registration attempts. Please try again in 1 hour or use a different username.' 
+        } 
+      };
     }
-  });
-  
-  return { data, error };
+    
+    return { data, error };
+  } catch (err: any) {
+    console.error('Signup error:', err);
+    return { 
+      data: null, 
+      error: { message: err.message || 'Registration failed. Please try again later.' } 
+    };
+  }
 };
 
 export const signInWithGoogle = async () => {
