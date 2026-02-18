@@ -179,14 +179,64 @@ const App: React.FC = () => {
     };
   }, [user, fetchAllData]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const { data, error } = await signInWithEmail(email, password);
-    if (error || !data.user) return false;
+const login = async (email: string, password: string): Promise<boolean> => {
+  console.log('Login attempt:', email);
+  
+  const { data, error } = await signInWithEmail(email, password);
+  
+  if (error) {
+    console.error('Sign in error:', error.message);
+    return false;
+  }
+  
+  if (!data.user) {
+    console.error('No user returned');
+    return false;
+  }
+  
+  console.log('Auth successful, user ID:', data.user.id);
+  
+  // Try to fetch profile from database first
+  let profile = await fetchUserProfile(data.user.id);
+  
+  if (!profile) {
+    console.log('No profile found in DB, creating from auth metadata...');
     
-    const profile = await fetchUserProfile(data.user.id);
-    setUser(profile);
-    return true;
-  };
+    // Get metadata safely - only full_name is guaranteed
+    const userData = data.user.user_metadata as { full_name?: string };
+    
+    const newProfile: User = {
+      id: data.user.id,
+      email: data.user.email || email,
+      name: userData?.full_name || email.split('@')[0],
+      role: UserRole.MUSICIAN,
+      instrument: '' // Default empty, not from metadata
+    };
+    
+    // Try to insert profile
+    const { error: insertError } = await supabase
+      .from('profiles')
+      .insert([{
+        id: newProfile.id,
+        name: newProfile.name,
+        email: newProfile.email,
+        role: newProfile.role,
+        instrument: newProfile.instrument,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]);
+    
+    if (insertError) {
+      console.warn('Could not create profile in DB:', insertError.message);
+    }
+    
+    profile = newProfile;
+  }
+  
+  console.log('Setting user profile:', profile);
+  setUser(profile);
+  return true;
+};
 
   const loginWithGoogle = async (): Promise<boolean> => {
     const { error } = await signInWithGoogle();

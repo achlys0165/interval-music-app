@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { UserRole } from '../types';
 import { 
   Mail, 
   Lock, 
@@ -28,7 +29,6 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
     if (!formData.name || !formData.email || !formData.password) {
       setError('Please fill in all required fields.');
       return;
@@ -48,14 +48,15 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Sign up with Supabase Auth
-      console.log('Creating auth user...');
+      console.log('Step 1: Creating auth user...');
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.name,
+            instrument: formData.instrument
           }
         }
       });
@@ -63,31 +64,53 @@ const Register: React.FC = () => {
       console.log('Auth response:', authData, authError);
 
       if (authError) throw authError;
-
-      if (authData.user) {
-        console.log('User created:', authData.user.id);
-        
-        // 2. Update profile with additional info
-        if (formData.instrument) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ instrument: formData.instrument })
-            .eq('id', authData.user.id);
-
-          if (profileError) {
-            console.error('Error saving instrument:', profileError);
-          }
-        }
-
-        setSuccess(true);
-        
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } else {
-        throw new Error('User creation failed - no user returned');
+      
+      if (!authData.user) {
+        throw new Error('User creation failed - no user returned from auth');
       }
+
+      const userId = authData.user.id;
+      console.log('Step 2: Auth user created with ID:', userId);
+
+      console.log('Step 3: Creating profile in database...');
+      
+      const profileData = {
+        id: userId,
+        name: formData.name,
+        email: formData.email,
+        role: UserRole.MUSICIAN,
+        instrument: formData.instrument || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([profileData]);
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            name: formData.name,
+            instrument: formData.instrument || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+          
+        if (updateError) {
+          console.error('Profile update also failed:', updateError);
+        }
+      }
+
+      console.log('Step 4: Profile created/updated successfully');
+      setSuccess(true);
+      
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      
     } catch (err: any) {
       console.error('Registration error:', err);
       setError(err.message || 'Failed to create account.');
@@ -121,12 +144,10 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
 
       <div className="max-w-md w-full z-10">
-        {/* Back to login */}
         <div className="mb-8">
           <Link 
             to="/login" 
@@ -152,7 +173,6 @@ const Register: React.FC = () => {
           <h2 className="text-xl font-bold mb-8 text-center italic tracking-tight">Registration</h2>
           
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Full Name */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Full Name *
@@ -171,7 +191,6 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Email */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Email Address *
@@ -190,7 +209,6 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Instrument (Optional) */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Primary Instrument <span className="text-white/20">(Optional)</span>
@@ -214,7 +232,6 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Password *
@@ -235,7 +252,6 @@ const Register: React.FC = () => {
               <p className="text-[10px] text-white/20 ml-1">Minimum 6 characters</p>
             </div>
 
-            {/* Confirm Password */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Confirm Password *
@@ -254,14 +270,12 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Error Message */}
             {error && (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[11px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2 duration-300">
                 {error}
               </div>
             )}
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}

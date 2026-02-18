@@ -29,11 +29,15 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
+      console.log('Attempting login with:', email);
       const success = await login(email, password);
+      console.log('Login success:', success);
+      
       if (!success) {
         setError('Invalid credentials. Please try again.');
       }
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.message || 'An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
@@ -53,7 +57,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background blobs for subtle aesthetic */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-white/5 blur-[120px] rounded-full"></div>
 
@@ -65,7 +68,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-2 italic">HIMIG</h1>
-          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">TOP - Music Ministry </p>
+          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">Music Ministry Hub</p>
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group">
