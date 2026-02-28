@@ -3,9 +3,10 @@ import { useData } from '../contexts/DataContext';
 import { ScheduleStatus } from '../types';
 import { turso } from '../lib/turso';
 import { 
-  UserPlus, Calendar, CheckCircle, AlertCircle, Clock, 
-  Plus, X, Loader2, Users
+  UserPlus, CheckCircle, AlertCircle, Clock, 
+  Plus, X, Loader2, Users, Calendar as CalendarIcon
 } from 'lucide-react';
+import CalendarPicker from '../components/CalendarPicker';
 
 const ROLES = [
   'Keys', 'Synth', 'Drums', 'Bass', 'Rhythm Guitar', 'Lead Guitar', 'Vocals (Lead)', 'Vocals (Backing)'
@@ -28,33 +29,18 @@ const AdminSchedule: React.FC = () => {
   
   const [newAssignment, setNewAssignment] = useState({ 
     musician_id: '', 
-    date: '', 
+    date: toISODateString(new Date()), // Default to today
     role: ''
   });
 
-  // Generate next 8 Sundays
-  const nextSundays = useMemo(() => {
-    const sundays = [];
-    const date = new Date();
-    date.setDate(date.getDate() + (7 - date.getDay()) % 7);
-    if (date.getTime() < new Date().getTime()) {
-      date.setDate(date.getDate() + 7);
-    }
-    for (let i = 0; i < 8; i++) {
-      sundays.push(toISODateString(new Date(date)));
-      date.setDate(date.getDate() + 7);
-    }
-    return sundays;
-  }, []);
-
-  const [selectedDate, setSelectedDate] = useState(nextSundays[0]);
+  const [selectedDate, setSelectedDate] = useState(toISODateString(new Date()));
 
   // Get assignments for selected date
   const dateAssignments = useMemo(() => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
-  // Fetch musicians from Turso
+  // Fetch musicians
   useEffect(() => {
     const fetchMusicians = async () => {
       try {
@@ -86,7 +72,7 @@ const AdminSchedule: React.FC = () => {
     try {
       await assignMusician(newAssignment);
       setSuccess('Musician assigned successfully!');
-      setNewAssignment({ musician_id: '', date: '', role: '' });
+      setNewAssignment({ musician_id: '', date: toISODateString(new Date()), role: '' });
       setShowAssignForm(false);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error: any) {
@@ -120,6 +106,18 @@ const AdminSchedule: React.FC = () => {
     }
   };
 
+  // Get upcoming dates with assignments for the horizontal scroll
+  const upcomingDates = useMemo(() => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      dates.push(toISODateString(d));
+    }
+    return dates;
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -133,7 +131,7 @@ const AdminSchedule: React.FC = () => {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black italic tracking-tighter uppercase">Team Schedule</h1>
-          <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Assign musicians to Sunday services</p>
+          <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Assign musicians to services</p>
         </div>
         <button 
           onClick={() => {
@@ -158,6 +156,7 @@ const AdminSchedule: React.FC = () => {
         </div>
       )}
 
+      {/* Assignment Form with Calendar */}
       {showAssignForm && (
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8">
           <h3 className="text-lg font-black italic mb-6 flex items-center gap-2">
@@ -180,22 +179,14 @@ const AdminSchedule: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Service Date</label>
-              <select 
-                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
-                value={newAssignment.date} 
-                onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} 
-                required
-              >
-                <option value="">Select Sunday...</option>
-                {nextSundays.map(date => (
-                  <option key={date} value={date}>
-                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
+            {/* CALENDAR PICKER HERE */}
+            <CalendarPicker
+              label="Service Date"
+              selectedDate={newAssignment.date}
+              onSelect={(date) => setNewAssignment({...newAssignment, date})}
+            />
+            
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Role/Position</label>
               <select 
@@ -221,40 +212,61 @@ const AdminSchedule: React.FC = () => {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-4 border-b border-white/5">
-        {nextSundays.map(date => {
-          const isSelected = selectedDate === date;
-          const count = schedules.filter(s => s.date === date).length;
-          return (
-            <button 
-              key={date}
-              onClick={() => setSelectedDate(date)}
-              className={`flex-shrink-0 text-left p-4 rounded-2xl border transition-all min-w-[140px] ${
-                isSelected 
-                  ? 'bg-white text-black border-white shadow-xl' 
-                  : 'bg-[#0a0a0a] border-white/10 text-white hover:bg-white/5'
-              }`}
-            >
-              <p className={`text-[10px] uppercase font-black ${isSelected ? 'text-black/60' : 'text-white/40'}`}>
-                {new Date(date).toLocaleDateString('en-US', { month: 'short' })}
-              </p>
-              <p className="text-2xl font-black italic">{new Date(date).getDate()}</p>
-              <p className={`text-[10px] uppercase font-bold mt-1 ${isSelected ? 'text-black/40' : 'text-white/20'}`}>
-                {count} assigned
-              </p>
-            </button>
-          );
-        })}
+      {/* Date Selector with Calendar */}
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="w-full md:w-72">
+            <CalendarPicker
+              label="Select Service Date"
+              selectedDate={selectedDate}
+              onSelect={setSelectedDate}
+            />
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-3">
+              Upcoming Dates
+            </h3>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {upcomingDates.slice(0, 14).map(date => {
+                const isSelected = selectedDate === date;
+                const count = schedules.filter(s => s.date === date).length;
+                const d = new Date(date);
+                
+                return (
+                  <button 
+                    key={date}
+                    onClick={() => setSelectedDate(date)}
+                    className={`flex-shrink-0 text-center p-3 rounded-xl border transition-all min-w-[70px] ${
+                      isSelected 
+                        ? 'bg-white text-black border-white' 
+                        : 'bg-black border-white/10 text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <p className={`text-[9px] uppercase font-black ${isSelected ? 'text-black/60' : 'text-white/40'}`}>
+                      {d.toLocaleDateString('en-US', { month: 'short' })}
+                    </p>
+                    <p className="text-xl font-black italic">{d.getDate()}</p>
+                    <p className={`text-[8px] uppercase font-bold mt-1 ${isSelected ? 'text-black/40' : 'text-white/20'}`}>
+                      {count} assigned
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Roster Grid */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden">
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <h2 className="text-xl font-black italic tracking-tighter flex items-center gap-2">
             <Users size={20} className="text-white/40" /> 
-            Sunday Roster
+            Service Roster
           </h2>
           <span className="text-[10px] uppercase font-black text-white/40 tracking-widest">
-            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </span>
         </div>
 

@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { Music, Filter, ExternalLink, Plus, X, Check, Calendar } from 'lucide-react';
+import { Music, ExternalLink, Plus, X, Check, Calendar } from 'lucide-react';
 import SongDetailModal from '../components/SongDetailModal';
+import CalendarPicker from '../components/CalendarPicker';
 import { Song, UserRole } from '../types';
 
 const SetlistPage: React.FC = () => {
@@ -16,22 +17,6 @@ const SetlistPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === UserRole.ADMIN;
-
-  // Generate next 8 Sundays
-  const nextSundays = useMemo(() => {
-    const sundays = [];
-    const date = new Date();
-    date.setDate(date.getDate() + (7 - date.getDay()) % 7);
-    if (date.getTime() < new Date().getTime()) {
-      date.setDate(date.getDate() + 7);
-    }
-    for (let i = 0; i < 8; i++) {
-      const d = new Date(date);
-      sundays.push(d.toISOString().split('T')[0]);
-      date.setDate(date.getDate() + 7);
-    }
-    return sundays;
-  }, []);
 
   // Get current setlist for selected date
   const currentSetlist = useMemo(() => {
@@ -84,7 +69,8 @@ const SetlistPage: React.FC = () => {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { 
-      month: 'short', 
+      weekday: 'long',
+      month: 'long', 
       day: 'numeric',
       year: 'numeric'
     });
@@ -107,59 +93,55 @@ const SetlistPage: React.FC = () => {
             {isAdmin ? 'Plan and manage service setlists' : 'View upcoming service setlists'}
           </p>
         </div>
-        
-        {/* Date Selector */}
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={14} />
-            <select 
-              className="bg-[#0a0a0a] border border-white/10 rounded-full py-2 pl-9 pr-8 text-xs appearance-none focus:outline-none cursor-pointer text-white"
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value);
+      </header>
+
+      {/* Date Selection with Calendar */}
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
+        <div className="flex flex-col md:flex-row gap-6 items-end">
+          <div className="w-full md:w-80">
+            <CalendarPicker
+              label="Select Service Date"
+              selectedDate={selectedDate}
+              onSelect={(date) => {
+                setSelectedDate(date);
                 setIsEditing(false);
               }}
-            >
-              <option value="">Select Sunday...</option>
-              {nextSundays.map(d => (
-                <option key={d} value={d}>{formatDate(d)}</option>
-              ))}
-            </select>
+            />
           </div>
           
           {isAdmin && selectedDate && !isEditing && (
             <button 
               onClick={handleEdit}
-              className="px-6 py-2 bg-white text-black rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/90 transition-all"
+              className="px-8 py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-white/90 transition-all"
             >
-              Edit Setlist
+              {currentSetlist ? 'Edit Setlist' : 'Create Setlist'}
             </button>
           )}
           
           {isAdmin && isEditing && (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button 
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 border border-white/20 text-white/60 rounded-full text-xs font-bold uppercase tracking-widest hover:border-white/40 transition-all"
+                className="px-6 py-4 border border-white/20 text-white/60 rounded-xl font-black uppercase text-xs tracking-widest hover:border-white/40 transition-all"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-6 py-2 bg-white text-black rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/90 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-8 py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest hover:bg-white/90 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {isSaving ? 'Saving...' : <><Check size={12} /> Save</>}
+                {isSaving ? 'Saving...' : <><Check size={14} /> Save Setlist</>}
               </button>
             </div>
           )}
         </div>
-      </header>
+      </div>
 
       {!selectedDate ? (
         <div className="py-20 text-center text-white/20 border-2 border-dashed border-white/5 rounded-3xl">
           <Calendar size={48} className="mx-auto mb-4 opacity-20" />
-          <p className="italic">Select a Sunday to view the setlist.</p>
+          <p className="italic">Select a date to view the setlist.</p>
         </div>
       ) : isEditing && isAdmin ? (
         // Admin Edit Mode
@@ -176,26 +158,26 @@ const SetlistPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredSongs.map(song => {
               const isSelected = selectedSongs.includes(song.id);
               return (
                 <button
                   key={song.id}
                   onClick={() => toggleSong(song.id)}
-                  className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  className={`p-5 rounded-2xl border text-left transition-all flex items-center justify-between ${
                     isSelected 
                       ? 'bg-white text-black border-white' 
                       : 'bg-[#0a0a0a] border-white/10 hover:border-white/30 text-white'
                   }`}
                 >
                   <div>
-                    <p className="font-bold">{song.title}</p>
+                    <p className="font-bold text-lg">{song.title}</p>
                     <p className="text-[10px] uppercase tracking-widest opacity-60 mt-1">
                       {song.category} • {song.original_key}
                     </p>
                   </div>
-                  {isSelected && <Check size={18} />}
+                  {isSelected && <Check size={20} />}
                 </button>
               );
             })}
@@ -209,7 +191,7 @@ const SetlistPage: React.FC = () => {
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <h3 className="text-sm font-bold uppercase tracking-widest text-white/40 mb-4">
-              Selected ({selectedSongs.length})
+              Selected Songs ({selectedSongs.length})
             </h3>
             {selectedSongs.length === 0 ? (
               <p className="text-white/20 italic text-sm">No songs selected yet.</p>
@@ -221,14 +203,14 @@ const SetlistPage: React.FC = () => {
                   return (
                     <span 
                       key={songId} 
-                      className="px-3 py-1.5 bg-white text-black rounded-full text-xs font-bold flex items-center gap-2"
+                      className="px-4 py-2 bg-white text-black rounded-full text-sm font-bold flex items-center gap-2"
                     >
                       {song.title}
                       <button 
                         onClick={() => toggleSong(songId)}
                         className="hover:text-red-500"
                       >
-                        <X size={12} />
+                        <X size={14} />
                       </button>
                     </span>
                   );
@@ -238,8 +220,12 @@ const SetlistPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        // View Mode (Musician & Admin)
+        // View Mode
         <div className="space-y-6">
+          <h2 className="text-xl font-black italic">
+            {formatDate(selectedDate)}
+          </h2>
+          
           {dateSongs.length === 0 ? (
             <div className="py-20 text-center text-white/20 border-2 border-dashed border-white/5 rounded-3xl">
               <Music size={48} className="mx-auto mb-4 opacity-20" />
@@ -247,7 +233,7 @@ const SetlistPage: React.FC = () => {
               {isAdmin && (
                 <button 
                   onClick={handleEdit}
-                  className="mt-4 px-6 py-2 bg-white/10 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all"
+                  className="mt-4 px-6 py-3 bg-white/10 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-white/20 transition-all"
                 >
                   Create Setlist
                 </button>
