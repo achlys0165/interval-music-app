@@ -6,7 +6,7 @@ import { DataProvider } from './contexts/DataContext';
 // Layout
 import Layout from './components/Layout';
 
-// Pages
+// Pages - All in pages/ directory (flat structure)
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -68,11 +68,11 @@ const ProtectedLayout: React.FC<{ adminOnly?: boolean }> = ({ adminOnly = false 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Public Routes - No Layout/Navbar */}
+      {/* Public Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       
-      {/* Musician Routes - With Layout/Navbar */}
+      {/* Musician Routes */}
       <Route element={<ProtectedLayout />}>
         <Route path="/dashboard" element={<MusicianDashboard />} />
         <Route path="/schedule" element={<SchedulePage />} />
@@ -82,11 +82,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
-      {/* Admin Routes - With Layout/Navbar */}
+      {/* Admin Routes - Using URL paths, NOT file directories */}
       <Route element={<ProtectedLayout adminOnly />}>
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/schedule" element={<AdminSchedule />} /> {/* Roster + Assign Duty combined */}
-        <Route path="/admin/songs" element={<AdminSongs />} />
+        <Route path="/admin-schedule" element={<AdminSchedule />} /> {/* Flat URL */}
+        <Route path="/admin-songs" element={<AdminSongs />} /> {/* Flat URL */}
       </Route>
 
       {/* Default redirect */}
