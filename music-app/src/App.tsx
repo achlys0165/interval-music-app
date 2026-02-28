@@ -1,7 +1,10 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+
+// Layout
+import Layout from './components/Layout';
 
 // Pages
 import Login from './pages/Login';
@@ -41,65 +44,53 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   return <>{children}</>;
 };
 
+// Layout Wrapper for protected routes
+const ProtectedLayout: React.FC<{ adminOnly?: boolean }> = ({ adminOnly = false }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      {/* Public Routes - No Layout/Navbar */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       
-      {/* Musician Routes */}
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <MusicianDashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/schedule" element={
-        <ProtectedRoute>
-          <SchedulePage />
-        </ProtectedRoute>
-      } />
-      <Route path="/setlist" element={
-        <ProtectedRoute>
-          <SetlistPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/search" element={
-        <ProtectedRoute>
-          <SearchPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/notifications" element={
-        <ProtectedRoute>
-          <NotificationsPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <SettingsPage />
-        </ProtectedRoute>
-      } />
+      {/* Musician Routes - With Layout/Navbar */}
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<MusicianDashboard />} />
+        <Route path="/schedule" element={<SchedulePage />} />
+        <Route path="/setlist" element={<SetlistPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
 
-      {/* Admin Routes */}
-      <Route path="/admin" element={
-        <ProtectedRoute adminOnly>
-          <AdminDashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin/panel" element={
-        <ProtectedRoute adminOnly>
-          <AdminPanel />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin/schedule" element={
-        <ProtectedRoute adminOnly>
-          <AdminSchedule />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin/songs" element={
-        <ProtectedRoute adminOnly>
-          <AdminSongs />
-        </ProtectedRoute>
-      } />
+      {/* Admin Routes - With Layout/Navbar */}
+      <Route element={<ProtectedLayout adminOnly />}>
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/panel" element={<AdminPanel />} />
+        <Route path="/admin/schedule" element={<AdminSchedule />} />
+        <Route path="/admin/songs" element={<AdminSongs />} />
+      </Route>
 
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
@@ -112,9 +103,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <DataProvider>
         <Router>
-          <div className="min-h-screen bg-black text-white font-sans">
-            <AppRoutes />
-          </div>
+          <AppRoutes />
         </Router>
       </DataProvider>
     </AuthProvider>
