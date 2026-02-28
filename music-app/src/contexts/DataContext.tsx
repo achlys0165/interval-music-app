@@ -222,7 +222,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       await turso.execute({
-        sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+        sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
               VALUES (?, ?, ?, ?, ?, datetime('now'))`,
         args: [
           'notif-' + Date.now(),
