@@ -19,7 +19,7 @@ const toISODateString = (date: Date) => {
 };
 
 const AdminSchedule: React.FC = () => {
-  const { schedules, assignMusician, loading } = useData();
+  const { schedules, assignMusician, loading, refreshData } = useData();
   const [musicians, setMusicians] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAssignForm, setShowAssignForm] = useState(false);
@@ -54,20 +54,18 @@ const AdminSchedule: React.FC = () => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
-  // Fetch musicians from Turso - WITH ERROR HANDLING
+  // Fetch musicians from Turso
   useEffect(() => {
     const fetchMusicians = async () => {
       try {
-        console.log('Fetching musicians...');
         const { rows } = await turso.execute({
           sql: 'SELECT id, name, instrument FROM users WHERE role = ?',
           args: ['musician']
         });
-        console.log('Musicians fetched:', rows);
         setMusicians(rows);
       } catch (error) {
         console.error('Error fetching musicians:', error);
-        setError('Failed to load musicians list');
+        setError('Failed to load musicians');
       }
     };
     fetchMusicians();
@@ -78,33 +76,18 @@ const AdminSchedule: React.FC = () => {
     setError(null);
     setSuccess(null);
     
-    console.log('Form submitted with:', newAssignment);
-    
-    // Validation
-    if (!newAssignment.musician_id) {
-      setError('Please select a musician');
-      return;
-    }
-    if (!newAssignment.date) {
-      setError('Please select a date');
-      return;
-    }
-    if (!newAssignment.role) {
-      setError('Please select a role');
+    if (!newAssignment.musician_id || !newAssignment.date || !newAssignment.role) {
+      setError('Please fill in all fields');
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      console.log('Calling assignMusician with:', newAssignment);
       await assignMusician(newAssignment);
-      console.log('Assignment successful!');
       setSuccess('Musician assigned successfully!');
       setNewAssignment({ musician_id: '', date: '', role: '' });
       setShowAssignForm(false);
-      
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (error: any) {
       console.error('Assignment error:', error);
@@ -164,7 +147,6 @@ const AdminSchedule: React.FC = () => {
         </button>
       </header>
 
-      {/* Error/Success Messages */}
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold text-center">
           {error}
@@ -176,15 +158,6 @@ const AdminSchedule: React.FC = () => {
         </div>
       )}
 
-      {/* Debug Info - Remove after fixing */}
-      <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-yellow-400 text-xs font-mono">
-        <p>Debug Info:</p>
-        <p>Musicians loaded: {musicians.length}</p>
-        <p>Schedules loaded: {schedules.length}</p>
-        <p>Selected Date: {selectedDate}</p>
-      </div>
-
-      {/* Assignment Form */}
       {showAssignForm && (
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8">
           <h3 className="text-lg font-black italic mb-6 flex items-center gap-2">
@@ -192,18 +165,12 @@ const AdminSchedule: React.FC = () => {
           </h3>
           <form onSubmit={handleAssign} className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">
-                Musician {musicians.length === 0 && '(Loading...)'}
-              </label>
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Musician</label>
               <select 
-                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white disabled:opacity-50"
+                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
                 value={newAssignment.musician_id} 
-                onChange={(e) => {
-                  console.log('Selected musician:', e.target.value);
-                  setNewAssignment({...newAssignment, musician_id: e.target.value});
-                }} 
+                onChange={(e) => setNewAssignment({...newAssignment, musician_id: e.target.value})} 
                 required
-                disabled={musicians.length === 0}
               >
                 <option value="">Select musician...</option>
                 {musicians.map(u => (
@@ -218,10 +185,7 @@ const AdminSchedule: React.FC = () => {
               <select 
                 className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
                 value={newAssignment.date} 
-                onChange={(e) => {
-                  console.log('Selected date:', e.target.value);
-                  setNewAssignment({...newAssignment, date: e.target.value});
-                }} 
+                onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} 
                 required
               >
                 <option value="">Select Sunday...</option>
@@ -237,10 +201,7 @@ const AdminSchedule: React.FC = () => {
               <select 
                 className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
                 value={newAssignment.role} 
-                onChange={(e) => {
-                  console.log('Selected role:', e.target.value);
-                  setNewAssignment({...newAssignment, role: e.target.value});
-                }} 
+                onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})} 
                 required
               >
                 <option value="">Select role...</option>
@@ -250,7 +211,7 @@ const AdminSchedule: React.FC = () => {
             <div className="md:col-span-3">
               <button 
                 type="submit"
-                disabled={isSubmitting || musicians.length === 0} 
+                disabled={isSubmitting} 
                 className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-white/90 transition-all disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Create Assignment'}
@@ -260,7 +221,6 @@ const AdminSchedule: React.FC = () => {
         </div>
       )}
 
-      {/* Date Selector */}
       <div className="flex gap-2 overflow-x-auto pb-4 border-b border-white/5">
         {nextSundays.map(date => {
           const isSelected = selectedDate === date;
@@ -287,7 +247,6 @@ const AdminSchedule: React.FC = () => {
         })}
       </div>
 
-      {/* Roster Grid */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden">
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <h2 className="text-xl font-black italic tracking-tighter flex items-center gap-2">

@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { turso, parseJsonArray } from '../lib/turso';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { turso } from '../lib/turso';
 import { Song, Schedule, Setlist, Notification, ScheduleStatus } from '../types';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   songs: Song[];
@@ -9,242 +9,344 @@ interface DataContextType {
   setlists: Setlist[];
   notifications: Notification[];
   loading: boolean;
-  refreshData: () => Promise<void>;
-  addSong: (song: Partial<Song>) => Promise<void>;
-  assignMusician: (assignment: Partial<Schedule>) => Promise<void>;
+  addSong: (song: Omit<Song, 'id' | 'created_at'>) => Promise<void>;
+  assignMusician: (assignment: { musician_id: string; date: string; role: string }) => Promise<void>;
   updateScheduleStatus: (scheduleId: string, status: ScheduleStatus) => Promise<void>;
-  updateSetlist: (setlist: Partial<Setlist>) => Promise<void>;
+  updateSetlist: (setlist: { date: string; song_ids: string[] }) => Promise<void>;
   markNotificationsRead: () => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  
   const [songs, setSongs] = useState<Song[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [setlists, setSetlists] = useState<Setlist[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      refreshData();
+  const fetchSongs = useCallback(async () => {
+    try {
+      const { rows } = await turso.execute({
+        sql: 'SELECT * FROM songs ORDER BY created_at DESC'
+      });
+      
+      const typedSongs: Song[] = rows.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        original_key: row.original_key,
+        category: row.category,
+        lyrics: row.lyrics,
+        reference_url: row.reference_url,
+        tempo: row.tempo,
+        created_at: row.created_at
+      }));
+      
+      setSongs(typedSongs);
+    } catch (error) {
+      console.error('Error fetching songs:', error);
+    }
+  }, []);
+
+  const fetchSchedules = useCallback(async () => {
+    try {
+      const { rows } = await turso.execute({
+        sql: `
+          SELECT s.*, u.name as musician_name, u.instrument 
+          FROM schedules s
+          LEFT JOIN users u ON s.musician_id = u.id
+          ORDER BY s.date ASC
+        `
+      });
+      
+      // Match your actual Schedule type with song_ids
+      const transformedRows: Schedule[] = rows.map((row: any) => ({
+        id: row.id,
+        musician_id: row.musician_id,
+        date: row.date,
+        role: row.role,
+        status: row.status,
+        song_ids: row.song_ids ? JSON.parse(row.song_ids) : [], // Add this if your type requires it
+        created_at: row.created_at,
+        musician: row.musician_name ? {
+          id: row.musician_id,
+          name: row.musician_name,
+          instrument: row.instrument
+        } : undefined
+      }));
+      
+      setSchedules(transformedRows);
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    }
+  }, []);
+
+  const fetchSetlists = useCallback(async () => {
+    try {
+      const { rows } = await turso.execute({
+        sql: 'SELECT * FROM setlists ORDER BY date DESC'
+      });
+      
+      const typedSetlists: Setlist[] = rows.map((row: any) => ({
+        id: row.id,
+        date: row.date,
+        song_ids: row.song_ids ? JSON.parse(row.song_ids) : [],
+        created_at: row.created_at
+      }));
+      
+      setSetlists(typedSetlists);
+    } catch (error) {
+      console.error('Error fetching setlists:', error);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { rows } = await turso.execute({
+        sql: 'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
+        args: [user.id]
+      });
+      
+      // Match your actual Notification type with 'type' property
+      const typedNotifications: Notification[] = rows.map((row: any) => ({
+        id: row.id,
+        user_id: row.user_id,
+        message: row.message,
+        type: row.type || 'info', // Add default type if missing
+        read: Boolean(row.read),
+        created_at: row.created_at
+      }));
+      
+      setNotifications(typedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
   }, [user]);
 
-  const refreshData = async () => {
-    setLoading(true);
-    try {
+  useEffect(() => {
+    const loadAllData = async () => {
+      setLoading(true);
       await Promise.all([
         fetchSongs(),
         fetchSchedules(),
         fetchSetlists(),
         fetchNotifications()
       ]);
-    } finally {
       setLoading(false);
+    };
+    
+    if (user) {
+      loadAllData();
     }
-  };
+  }, [user, fetchSongs, fetchSchedules, fetchSetlists, fetchNotifications]);
 
-  const fetchSongs = async () => {
-    const { rows } = await turso.execute('SELECT * FROM songs ORDER BY created_at DESC');
-    setSongs(rows as unknown as Song[]);
-  };
+  const refreshData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      fetchSongs(),
+      fetchSchedules(),
+      fetchSetlists(),
+      fetchNotifications()
+    ]);
+    setLoading(false);
+  }, [fetchSongs, fetchSchedules, fetchSetlists, fetchNotifications]);
 
-  const fetchSchedules = async () => {
-    const { rows } = await turso.execute(`
-      SELECT s.*, u.name as musician_name, u.instrument as musician_instrument
-      FROM schedules s
-      LEFT JOIN users u ON s.musician_id = u.id
-      ORDER BY s.date DESC
-    `);
-    
-    const formattedSchedules: Schedule[] = rows.map((row: any) => ({
-      id: row.id,
-      date: row.date,
-      musician_id: row.musician_id,
-      musician: row.musician_name ? {
-        id: row.musician_id,
-        name: row.musician_name,
-        instrument: row.musician_instrument
-      } : undefined,
-      role: row.role,
-      status: row.status as ScheduleStatus,
-      song_ids: parseJsonArray(row.song_ids),
-      created_at: row.created_at
-    }));
-
-    setSchedules(formattedSchedules);
-  };
-
-  const fetchSetlists = async () => {
-    const { rows } = await turso.execute('SELECT * FROM setlists ORDER BY date DESC');
-    
-    const formattedSetlists: Setlist[] = rows.map((row: any) => ({
-      id: row.id,
-      date: row.date,
-      song_ids: parseJsonArray(row.song_ids),
-      theme: row.theme,
-      created_at: row.created_at
-    }));
-
-    setSetlists(formattedSetlists);
-  };
-
-  const fetchNotifications = async () => {
-    if (!user) return;
-    
-    const { rows } = await turso.execute({
-      sql: 'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
-      args: [user.id]
-    });
-    
-    setNotifications(rows as unknown as Notification[]);
-  };
-
-  const addSong = async (song: Partial<Song>) => {
-    if (!user) throw new Error('Not authenticated');
-
-    const id = crypto.randomUUID();
-    await turso.execute({
-      sql: `INSERT INTO songs (id, title, original_key, category, tempo, lyrics, reference_url, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        id,
-        song.title || '',
-        song.original_key || 'C',
-        song.category || 'Worship',
-        song.tempo || '',
-        song.lyrics || '',
-        song.reference_url || '',
-        user.id
-      ]
-    });
-
-    await fetchSongs();
-  };
-
-  const assignMusician = async (assignment: Partial<Schedule>) => {
-    const id = crypto.randomUUID();
-    await turso.execute({
-      sql: `INSERT INTO schedules (id, date, musician_id, role, status, song_ids) 
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [
-        id,
-        assignment.date || '',
-        assignment.musician_id || '',
-        assignment.role || '',
-        ScheduleStatus.PENDING,
-        JSON.stringify(assignment.song_ids || [])
-      ]
-    });
-
-    if (assignment.musician_id) {
+  const addSong = async (songData: Omit<Song, 'id' | 'created_at'>) => {
+    try {
+      const id = 'song-' + Date.now();
       await turso.execute({
-        sql: `INSERT INTO notifications (id, user_id, message, type) 
-              VALUES (?, ?, ?, ?)`,
+        sql: `INSERT INTO songs (id, title, original_key, category, lyrics, reference_url, tempo, created_at) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
         args: [
-          crypto.randomUUID(),
-          assignment.musician_id,
-          `You have been assigned as ${assignment.role} on ${assignment.date}`,
-          'assignment'
+          id,
+          songData.title,
+          songData.original_key,
+          songData.category,
+          songData.lyrics || '',
+          songData.reference_url || '',
+          songData.tempo || ''
         ]
       });
-    }
-
-    await fetchSchedules();
-    await fetchNotifications();
-  };
-
-  const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus) => {
-    await turso.execute({
-      sql: 'UPDATE schedules SET status = ? WHERE id = ?',
-      args: [status, scheduleId]
-    });
-
-    const { rows } = await turso.execute({
-      sql: `SELECT s.*, u.name as musician_name FROM schedules s 
-            JOIN users u ON s.musician_id = u.id 
-            WHERE s.id = ?`,
-      args: [scheduleId]
-    });
-
-    if (rows.length > 0) {
-      const schedule = rows[0];
-      const { rows: admins } = await turso.execute("SELECT id FROM users WHERE role = 'admin'");
-
-      for (const admin of admins) {
+      
+      const { rows: users } = await turso.execute({
+        sql: 'SELECT id FROM users'
+      });
+      
+      for (const u of users) {
         await turso.execute({
-          sql: `INSERT INTO notifications (id, user_id, message, type) 
-                VALUES (?, ?, ?, ?)`,
+          sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+                VALUES (?, ?, ?, ?, ?, datetime('now'))`,
           args: [
-            crypto.randomUUID(),
-            admin.id as string,
-            `${schedule.musician_name} has ${status} the assignment for ${schedule.role} on ${schedule.date}`,
-            'status_update'
+            'notif-' + Date.now() + '-' + (u as any).id,
+            (u as any).id,
+            `New song added: ${songData.title}`,
+            'song',
+            false
           ]
         });
       }
+      
+      await fetchSongs();
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error adding song:', error);
+      throw error;
     }
-
-    await fetchSchedules();
   };
 
-  const updateSetlist = async (setlist: Partial<Setlist>) => {
-    if (!setlist.date) return;
-
-    const { rows } = await turso.execute({
-      sql: 'SELECT id FROM setlists WHERE date = ?',
-      args: [setlist.date]
-    });
-
-    if (rows.length > 0) {
-      await turso.execute({
-        sql: 'UPDATE setlists SET song_ids = ? WHERE date = ?',
-        args: [JSON.stringify(setlist.song_ids || []), setlist.date]
+  const assignMusician = async (assignment: { musician_id: string; date: string; role: string }) => {
+    try {
+      const { rows: existing } = await turso.execute({
+        sql: 'SELECT id FROM schedules WHERE date = ? AND role = ?',
+        args: [assignment.date, assignment.role]
       });
-    } else {
+      
+      if (existing.length > 0) {
+        throw new Error(`Position ${assignment.role} is already filled for this date`);
+      }
+      
+      const id = 'sched-' + Date.now();
       await turso.execute({
-        sql: `INSERT INTO setlists (id, date, song_ids, theme) 
-              VALUES (?, ?, ?, ?)`,
+        sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
+              VALUES (?, ?, ?, ?, ?, datetime('now'))`,
         args: [
-          crypto.randomUUID(),
-          setlist.date,
-          JSON.stringify(setlist.song_ids || []),
-          setlist.theme || ''
+          id,
+          assignment.musician_id,
+          assignment.date,
+          assignment.role,
+          ScheduleStatus.PENDING
         ]
       });
+      
+      await turso.execute({
+        sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+              VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+        args: [
+          'notif-' + Date.now(),
+          assignment.musician_id,
+          `You have been assigned as ${assignment.role} on ${assignment.date}`,
+          'schedule',
+          false
+        ]
+      });
+      
+      await fetchSchedules();
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error assigning musician:', error);
+      throw error;
     }
+  };
 
-    await fetchSetlists();
+  const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus) => {
+    try {
+      await turso.execute({
+        sql: 'UPDATE schedules SET status = ? WHERE id = ?',
+        args: [status, scheduleId]
+      });
+      
+      const { rows } = await turso.execute({
+        sql: `SELECT s.*, u.name as musician_name FROM schedules s 
+              JOIN users u ON s.musician_id = u.id 
+              WHERE s.id = ?`,
+        args: [scheduleId]
+      });
+      
+      const schedule = rows[0] as any;
+      
+      const { rows: admins } = await turso.execute({
+        sql: 'SELECT id FROM users WHERE role = ?',
+        args: ['admin']
+      });
+      
+      for (const admin of admins) {
+        await turso.execute({
+          sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+                VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+          args: [
+            'notif-' + Date.now(),
+            (admin as any).id,
+            `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
+            'schedule',
+            false
+          ]
+        });
+      }
+      
+      await fetchSchedules();
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error updating schedule status:', error);
+      throw error;
+    }
+  };
+
+  const updateSetlist = async (setlistData: { date: string; song_ids: string[] }) => {
+    try {
+      const { rows: existing } = await turso.execute({
+        sql: 'SELECT id FROM setlists WHERE date = ?',
+        args: [setlistData.date]
+      });
+      
+      const songIdsJson = JSON.stringify(setlistData.song_ids);
+      
+      if (existing.length > 0) {
+        await turso.execute({
+          sql: 'UPDATE setlists SET song_ids = ? WHERE date = ?',
+          args: [songIdsJson, setlistData.date]
+        });
+      } else {
+        await turso.execute({
+          sql: `INSERT INTO setlists (id, date, song_ids, created_at) 
+                VALUES (?, ?, ?, datetime('now'))`,
+          args: [
+            'setlist-' + Date.now(),
+            setlistData.date,
+            songIdsJson
+          ]
+        });
+      }
+      
+      await fetchSetlists();
+    } catch (error) {
+      console.error('Error updating setlist:', error);
+      throw error;
+    }
   };
 
   const markNotificationsRead = async () => {
     if (!user) return;
-    
-    await turso.execute({
-      sql: 'UPDATE notifications SET read = TRUE WHERE user_id = ?',
-      args: [user.id]
-    });
+    try {
+      await turso.execute({
+        sql: 'UPDATE notifications SET read = ? WHERE user_id = ? AND read = ?',
+        args: [true, user.id, false]
+      });
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error marking notifications read:', error);
+    }
+  };
 
-    await fetchNotifications();
+  const value: DataContextType = {
+    songs,
+    schedules,
+    setlists,
+    notifications,
+    loading,
+    addSong,
+    assignMusician,
+    updateScheduleStatus,
+    updateSetlist,
+    markNotificationsRead,
+    refreshData
   };
 
   return (
-    <DataContext.Provider value={{
-      songs,
-      schedules,
-      setlists,
-      notifications,
-      loading,
-      refreshData,
-      addSong,
-      assignMusician,
-      updateScheduleStatus,
-      updateSetlist,
-      markNotificationsRead
-    }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );
@@ -252,6 +354,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (!context) throw new Error('useData must be used within DataProvider');
+  if (context === undefined) {
+    throw new Error('useData must be used within a DataProvider');
+  }
   return context;
 };
