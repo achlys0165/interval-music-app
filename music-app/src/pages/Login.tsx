@@ -63,13 +63,13 @@ const Login: React.FC = () => {
             </div>
           </div>
           <h1 className="text-4xl font-black tracking-tighter mb-2 italic">HIMIG</h1>
-          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">Music Ministry Hub</p>
+          <p className="text-white/40 text-xs tracking-[0.2em] uppercase font-bold">TOP - Music Ministry</p>
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 md:p-10 shadow-2xl relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
           
-          <h2 className="text-xl font-bold mb-8 text-center italic tracking-tight">System Authentication</h2>
+          <h2 className="text-xl font-bold mb-8 text-center italic tracking-tight">Music System</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
