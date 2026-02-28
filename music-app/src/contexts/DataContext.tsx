@@ -198,86 +198,135 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const assignMusician = async (assignment: { musician_id: string; date: string; role: string }) => {
-    try {
-      const { rows: existing } = await turso.execute({
+      try {
+        console.log('Starting assignment for:', assignment);
+    
+        // Check for existing assignment
+        const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM schedules WHERE date = ? AND role = ?',
         args: [assignment.date, assignment.role]
       });
-      
+    
       if (existing.length > 0) {
         throw new Error(`Position ${assignment.role} is already filled for this date`);
       }
-      
-      const id = 'sched-' + Date.now();
-      await turso.execute({
-        sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
-              VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-        args: [
-          id,
-          assignment.musician_id,
-          assignment.date,
-          assignment.role,
-          ScheduleStatus.PENDING
-        ]
-      });
-      
-      await turso.execute({
-        sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
-              VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-        args: [
-          'notif-' + Date.now(),
-          assignment.musician_id,
-          `You have been assigned as ${assignment.role} on ${assignment.date}`,
-          false
-        ]
-      });
-      
-      await fetchSchedules();
-      await fetchNotifications();
-    } catch (error) {
-      console.error('Error assigning musician:', error);
-      throw error;
-    }
+    
+      // Create schedule
+      const scheduleId = 'sched-' + Date.now();
+        await turso.execute({
+          sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
+               VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+          args: [
+            scheduleId,
+            assignment.musician_id,
+            assignment.date,
+            assignment.role,
+            ScheduleStatus.PENDING
+          ]
+        });
+        console.log('Schedule created:', scheduleId);
+    
+        // Create notification for musician - FIXED
+        const notifId = 'notif-' + Date.now();
+        console.log('Creating notification:', {
+          id: notifId,
+          user_id: assignment.musician_id,
+          message: `You have been assigned as ${assignment.role} on ${assignment.date}`
+        });
+    
+        try {
+          await turso.execute({
+            sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
+                VALUES (?, ?, ?, ?, datetime('now'))`,
+            args: [
+             notifId,
+              assignment.musician_id,
+              `You have been assigned as ${assignment.role} on ${assignment.date}`,
+              false
+            ]
+          });
+          console.log('Notification created successfully');
+        } catch (notifError) {
+          console.error('Notification creation failed:', notifError);
+          // Don't throw - assignment succeeded even if notification failed
+        }
+    
+        // Refresh data
+        await fetchSchedules();
+        await fetchNotifications();
+        console.log('Data refreshed');
+    
+      } catch (error) {
+        console.error('Error in assignMusician:', error);
+        throw error;
+        }
   };
 
   const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus) => {
     try {
+      console.log('Updating schedule status:', scheduleId, status);
+      
+      // Update the schedule
       await turso.execute({
         sql: 'UPDATE schedules SET status = ? WHERE id = ?',
         args: [status, scheduleId]
       });
+      console.log('Schedule status updated');
       
+      // Get schedule details with musician info
       const { rows } = await turso.execute({
-        sql: `SELECT s.*, u.name as musician_name FROM schedules s 
+        sql: `SELECT s.*, u.name as musician_name, u.id as musician_id 
+              FROM schedules s 
               JOIN users u ON s.musician_id = u.id 
               WHERE s.id = ?`,
         args: [scheduleId]
       });
       
-      const schedule = rows[0] as any;
+      if (rows.length === 0) {
+        console.error('Schedule not found:', scheduleId);
+        throw new Error('Schedule not found');
+      }
       
+      const schedule = rows[0] as any;
+      console.log('Schedule details:', schedule);
+      
+      // Get all admin IDs
       const { rows: admins } = await turso.execute({
         sql: 'SELECT id FROM users WHERE role = ?',
         args: ['admin']
       });
       
+      console.log('Found admins:', admins.length);
+      
+      // Create notification for each admin
       for (const admin of admins) {
-        await turso.execute({
-          sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
-                VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-          args: [
-            'notif-' + Date.now(),
-            (admin as any).id,
-            `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
-            false
-          ]
-        });
+        const adminId = (admin as any).id;
+        const notifId = 'notif-' + Date.now() + '-' + adminId;
+        
+        try {
+          await turso.execute({
+            sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
+                  VALUES (?, ?, ?, ?, datetime('now'))`,
+            args: [
+              notifId,
+              adminId,
+              `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
+              false
+            ]
+          });
+          console.log('Admin notification created for:', adminId);
+        } catch (notifError) {
+          console.error('Failed to create admin notification:', notifError);
+        }
       }
       
+      // Refresh data
       await fetchSchedules();
       await fetchNotifications();
+      console.log('Status update complete');
+      
     } catch (error) {
-      console.error('Error updating schedule status:', error);
+      console.error('Error in updateScheduleStatus:', error);
       throw error;
     }
   };
