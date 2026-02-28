@@ -184,7 +184,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             'notif-' + Date.now() + '-' + (u as any).id,
             (u as any).id,
             `New song added: ${songData.title}`,
-            'song',
             false
           ]
         });
@@ -229,7 +228,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'notif-' + Date.now(),
           assignment.musician_id,
           `You have been assigned as ${assignment.role} on ${assignment.date}`,
-          'schedule',
           false
         ]
       });
@@ -271,7 +269,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             'notif-' + Date.now(),
             (admin as any).id,
             `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
-            'schedule',
             false
           ]
         });
