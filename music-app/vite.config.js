@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(), // 2. Add this
-  ],
-  envPrefix: 'VITE_',
+  ],  define: {
+    // Ensure env vars are available
+    'process.env': {}
+  }
 })
+

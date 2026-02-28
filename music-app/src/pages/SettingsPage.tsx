@@ -1,11 +1,32 @@
-
 import React, { useState } from 'react';
-import { useAuth } from '../App';
-import { User as UserIcon, Mail, Shield, Smartphone, Globe, Save } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { User as UserIcon, Mail, Shield, Smartphone, Save } from 'lucide-react';
+import { turso } from '../lib/turso';
 
 const SettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    instrument: user?.instrument || ''
+  });
+
+  const handleSave = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await turso.execute({
+        sql: 'UPDATE users SET name = ?, instrument = ? WHERE id = ?',
+        args: [formData.name, formData.instrument, user.id]
+      });
+      await refreshUser(); // Refresh user data in context
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-12">
@@ -15,7 +36,6 @@ const SettingsPage: React.FC = () => {
       </header>
 
       <div className="space-y-10">
-        {/* Profile Section */}
         <section className="space-y-6">
           <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30 border-b border-white/5 pb-2">Profile Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -25,8 +45,9 @@ const SettingsPage: React.FC = () => {
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
                 <input 
                   type="text" 
-                  defaultValue={user?.name}
-                  className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-white/30 outline-none" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-white/30 outline-none text-white" 
                 />
               </div>
             </div>
@@ -36,7 +57,7 @@ const SettingsPage: React.FC = () => {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
                 <input 
                   type="email" 
-                  defaultValue={user?.email}
+                  value={user?.email || ''}
                   disabled
                   className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm text-white/40 cursor-not-allowed" 
                 />
@@ -48,8 +69,9 @@ const SettingsPage: React.FC = () => {
                 <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
                 <input 
                   type="text" 
-                  defaultValue={user?.instrument || 'N/A'}
-                  className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-white/30 outline-none" 
+                  value={formData.instrument}
+                  onChange={(e) => setFormData({...formData, instrument: e.target.value})}
+                  className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm focus:border-white/30 outline-none text-white" 
                 />
               </div>
             </div>
@@ -59,7 +81,7 @@ const SettingsPage: React.FC = () => {
                 <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={16} />
                 <input 
                   type="text" 
-                  defaultValue={user?.role}
+                  value={user?.role || ''}
                   disabled
                   className="w-full bg-[#0a0a0a] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-sm text-white/40 uppercase tracking-widest text-[10px] font-bold" 
                 />
@@ -68,7 +90,6 @@ const SettingsPage: React.FC = () => {
           </div>
         </section>
 
-        {/* Preferences Section */}
         <section className="space-y-6">
           <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white/30 border-b border-white/5 pb-2">App Preferences</h3>
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl divide-y divide-white/5">
@@ -97,8 +118,12 @@ const SettingsPage: React.FC = () => {
         </section>
 
         <div className="pt-4">
-           <button className="flex items-center gap-3 px-10 py-4 bg-white text-black font-black uppercase text-xs tracking-[0.2em] rounded-full hover:bg-white/90 transition-all shadow-xl">
-             <Save size={16} /> Save Changes
+           <button 
+             onClick={handleSave}
+             disabled={saving}
+             className="flex items-center gap-3 px-10 py-4 bg-white text-black font-black uppercase text-xs tracking-[0.2em] rounded-full hover:bg-white/90 transition-all shadow-xl disabled:opacity-50"
+           >
+             {saving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
            </button>
         </div>
       </div>

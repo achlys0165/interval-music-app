@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../App';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Shield, 
   Music as MusicIcon, 
@@ -11,12 +11,19 @@ import {
 } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const { login, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
+  const { login, user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (user) {
+      navigate(user.role === 'admin' ? '/admin' : '/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,29 +36,17 @@ const Login: React.FC = () => {
     setError(null);
     
     try {
-      console.log('Attempting login with username:', username);
       const success = await login(username, password);
-      console.log('Login success:', success);
       
       if (!success) {
         setError('Invalid credentials. Please try again.');
       }
+      // Navigation happens automatically via useEffect above
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    setError(null);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during Google sign-in.');
-      setGoogleLoading(false);
     }
   };
 
@@ -78,45 +73,49 @@ const Login: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">Username</label>
+              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
+                Username
+              </label>
               <div className="relative group/input">
                 <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
                 <input 
                   type="text" 
                   autoFocus
                   placeholder="johnsmith"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                  disabled={loading || googleLoading}
+                  disabled={loading}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">Password</label>
+              <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
+                Password
+              </label>
               <div className="relative group/input">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
                 <input 
                   type="password" 
                   placeholder="••••••••"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading || googleLoading}
+                  disabled={loading}
                 />
               </div>
             </div>
 
             {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[11px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[11px] font-bold uppercase tracking-wider text-center">
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading}
               className="w-full flex items-center justify-center gap-3 py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] hover:bg-white/90 active:scale-[0.98] transition-all shadow-[0_0_30px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:cursor-not-allowed group/btn"
             >
               {loading ? (
@@ -142,7 +141,7 @@ const Login: React.FC = () => {
           <div className="mt-10 flex flex-col items-center gap-4">
              <div className="w-12 h-px bg-white/5"></div>
              <p className="text-[9px] text-white/10 uppercase tracking-[0.4em] font-black">
-               {loading || googleLoading ? 'Authenticating Signature' : 'Authorized Personnel Only'}
+               {loading ? 'Authenticating...' : 'Authorized Personnel Only'}
              </p>
           </div>
         </div>

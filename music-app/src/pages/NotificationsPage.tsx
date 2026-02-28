@@ -1,6 +1,6 @@
-
 import React from 'react';
-import { useAuth, useData } from '../App';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { UserRole } from '../types';
 import { Bell, CheckCircle2, Circle, AlertCircle, Info, Calendar } from 'lucide-react';
 
@@ -8,7 +8,7 @@ const NotificationsPage: React.FC = () => {
   const { user } = useAuth();
   const { notifications, markNotificationsRead } = useData();
 
-  const myNotifications = notifications.filter(n => n.user_id === user?.id);
+  const myNotifications = notifications.filter((n: any) => n.user_id === user?.id);
 
   const getIcon = (message: string) => {
     if (message.includes('accepted')) return <CheckCircle2 size={18} className="text-green-500" />;
@@ -26,7 +26,7 @@ const NotificationsPage: React.FC = () => {
             {user?.role === UserRole.ADMIN ? 'Ministry wide logistics and status updates' : 'Personal assignment alerts'}
           </p>
         </div>
-        {myNotifications.some(n => !n.read) && (
+        {myNotifications.some((n: any) => !n.read) && (
           <button 
             onClick={markNotificationsRead}
             className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 hover:text-white flex items-center gap-2 border border-white/10 px-6 py-3 rounded-full transition-all bg-white/5 hover:bg-white/10"
@@ -38,14 +38,13 @@ const NotificationsPage: React.FC = () => {
 
       <div className="space-y-4">
         {myNotifications.length > 0 ? (
-          myNotifications.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(notif => (
+          myNotifications.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((notif: any) => (
             <div 
               key={notif.id}
               className={`p-6 border-2 rounded-[2rem] transition-all flex items-start gap-6 relative overflow-hidden group ${
                 notif.read ? 'bg-black border-white/5 text-white/40 opacity-70' : 'bg-[#080808] border-white/10 text-white shadow-xl'
               }`}
             >
-              {/* Vertical line indicator for unread */}
               {!notif.read && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-white"></div>}
 
               <div className={`shrink-0 p-4 rounded-3xl ${notif.read ? 'bg-white/5' : 'bg-white/10 group-hover:scale-110 transition-transform duration-500'}`}>
@@ -55,7 +54,7 @@ const NotificationsPage: React.FC = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-4 mb-2">
                    <p className="text-[10px] uppercase tracking-widest font-black text-white/20">
-                     {new Date(notif.date).toLocaleDateString(undefined, { 
+                     {new Date(notif.created_at).toLocaleDateString(undefined, { 
                        month: 'short', 
                        day: 'numeric', 
                        hour: '2-digit', 

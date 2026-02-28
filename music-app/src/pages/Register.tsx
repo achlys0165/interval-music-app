@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signUpWithUsername } from '../lib/supabase';
-import { UserRole } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { 
-  Mail, 
   Lock, 
   User, 
   Loader2, 
   ChevronRight, 
   ArrowLeft,
   CheckCircle,
-  UserCircle
+  UserCircle,
+  Music
 } from 'lucide-react';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -22,7 +22,7 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     username: '',
-    email: '',  // Real email - only stored in profiles table
+    email: '',
     instrument: '',
     password: '',
     confirmPassword: ''
@@ -31,7 +31,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.username || !formData.email || !formData.password) {
+    if (!formData.name || !formData.username || !formData.password || !formData.confirmPassword) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -55,29 +55,14 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      console.log('Creating user with username:', formData.username);
-      console.log('Real email (for profiles only):', formData.email);
-      
-      const { data: authData, error: authError } = await signUpWithUsername(
-        formData.username,
-        formData.password,
-        formData.email,  // Real email - goes to profiles table only
-        {
-          full_name: formData.name,
-          instrument: formData.instrument
-        }
-      );
+      await register({
+        username: formData.username,
+        password: formData.password,
+        name: formData.name,
+        email: formData.email,
+        instrument: formData.instrument
+      });
 
-      console.log('Auth response:', authData, authError);
-
-      if (authError) throw authError;
-      
-      if (!authData.user) {
-        throw new Error('User creation failed');
-      }
-
-      console.log('User created successfully with fake auth email:', authData.user.email);
-      console.log('Real email stored in profiles table only');
       setSuccess(true);
       
       setTimeout(() => {
@@ -145,6 +130,7 @@ const Register: React.FC = () => {
           <h2 className="text-xl font-bold mb-8 text-center italic tracking-tight">Registration</h2>
           
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Full Name */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Full Name *
@@ -154,7 +140,7 @@ const Register: React.FC = () => {
                 <input 
                   type="text" 
                   placeholder="John Smith"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   disabled={loading}
@@ -163,6 +149,7 @@ const Register: React.FC = () => {
               </div>
             </div>
 
+            {/* Username */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Username *
@@ -172,58 +159,61 @@ const Register: React.FC = () => {
                 <input 
                   type="text" 
                   placeholder="johnsmith"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})}
                   disabled={loading}
                   required
                 />
               </div>
-              <p className="text-[10px] text-white/20 ml-1">Used for login. No spaces.</p>
+              <p className="text-[10px] text-white/30 ml-1">Used for login. No spaces.</p>
             </div>
 
+            {/* Email (Optional) */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
-                Email * (Stored privately)
+                Email <span className="text-white/20">(Optional)</span>
               </label>
               <div className="relative group/input">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" size={18} />
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within/input:text-white transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                </svg>
                 <input 
                   type="email" 
                   placeholder="name@ministry.com"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   disabled={loading}
-                  required
                 />
               </div>
-              <p className="text-[10px] text-green-400/60 ml-1">✓ Only stored in our database, not in authentication</p>
+              <p className="text-[10px] text-white/30 ml-1">For notifications only.</p>
             </div>
 
+            {/* Instrument - Custom Dropdown */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Primary Instrument
               </label>
-              <div className="relative group/input">
-                <select 
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-4 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all text-white/60"
-                  value={formData.instrument}
-                  onChange={(e) => setFormData({...formData, instrument: e.target.value})}
-                  disabled={loading}
-                >
-                  <option value="">Select instrument...</option>
-                  <option value="Vocals">Vocals</option>
-                  <option value="Keys">Keys / Piano</option>
-                  <option value="Guitar">Guitar</option>
-                  <option value="Bass">Bass</option>
-                  <option value="Drums">Drums</option>
-                  <option value="Violin">Violin</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
+              <CustomSelect
+                value={formData.instrument}
+                onChange={(value) => setFormData({...formData, instrument: value})}
+                options={[
+                  { value: '', label: 'Select instrument...' },
+                  { value: 'Vocals', label: 'Vocals' },
+                  { value: 'Keys', label: 'Keys / Piano' },
+                  { value: 'Guitar', label: 'Guitar' },
+                  { value: 'Bass', label: 'Bass' },
+                  { value: 'Drums', label: 'Drums' },
+                  { value: 'Violin', label: 'Violin' },
+                  { value: 'Other', label: 'Other' }
+                ]}
+                disabled={loading}
+              />
             </div>
 
+            {/* Password */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Password *
@@ -233,7 +223,7 @@ const Register: React.FC = () => {
                 <input 
                   type="password" 
                   placeholder="••••••••"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   disabled={loading}
@@ -241,9 +231,10 @@ const Register: React.FC = () => {
                   minLength={6}
                 />
               </div>
-              <p className="text-[10px] text-white/20 ml-1">Minimum 6 characters</p>
+              <p className="text-[10px] text-white/30 ml-1">Minimum 6 characters</p>
             </div>
 
+            {/* Confirm Password */}
             <div className="space-y-2">
               <label className="text-[10px] uppercase tracking-[0.3em] text-white/40 font-black ml-1">
                 Confirm Password *
@@ -253,7 +244,7 @@ const Register: React.FC = () => {
                 <input 
                   type="password" 
                   placeholder="••••••••"
-                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all placeholder:text-white/10"
+                  className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                   disabled={loading}
@@ -262,12 +253,14 @@ const Register: React.FC = () => {
               </div>
             </div>
 
+            {/* Error Message */}
             {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[11px] font-bold uppercase tracking-wider text-center animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-[11px] font-bold uppercase tracking-wider text-center">
                 {error}
               </div>
             )}
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -294,6 +287,69 @@ const Register: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Custom Select Component
+interface CustomSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, disabled }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className="w-full bg-black border border-white/10 rounded-2xl py-4 pl-12 pr-10 text-sm text-left focus:border-white/30 focus:bg-white/[0.02] outline-none transition-all disabled:opacity-50"
+        disabled={disabled}
+      >
+        <Music className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" size={18} />
+        <span className={value ? 'text-white' : 'text-white/20'}>
+          {options.find(opt => opt.value === value)?.label || options[0].label}
+        </span>
+        <svg 
+          className={`absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+          width="12" 
+          height="12" 
+          viewBox="0 0 12 12" 
+          fill="none"
+        >
+          <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 rounded-2xl overflow-hidden z-50 shadow-2xl">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-4 py-3 text-sm text-left transition-colors hover:bg-white/5 ${
+                  value === option.value ? 'text-white bg-white/10' : 'text-white/60'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };

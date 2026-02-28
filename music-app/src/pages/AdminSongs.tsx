@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { useData } from '../App';
-import { supabase } from '../lib/supabase';
+import { useData } from '../contexts/DataContext';
 import { PlusCircle, Search, Music, ChevronRight, Loader2, Save } from 'lucide-react';
 
-// Define CHROMATIC_SCALE locally instead of importing from constants
 const CHROMATIC_SCALE = [
   'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
 ];
@@ -16,7 +14,6 @@ const AdminSongs: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Form state for new song
   const [newSong, setNewSong] = useState({ 
     title: '', 
     original_key: 'C', 
@@ -26,7 +23,6 @@ const AdminSongs: React.FC = () => {
     tempo: ''
   });
 
-  // Filter songs based on search query
   const filteredSongs = songs.filter(s => 
     s.title?.toLowerCase().includes(query.toLowerCase()) || 
     s.category?.toLowerCase().includes(query.toLowerCase()) ||
@@ -40,7 +36,6 @@ const AdminSongs: React.FC = () => {
     setIsSubmitting(true);
     try {
       await addSong(newSong);
-      // Reset form
       setNewSong({ 
         title: '', 
         original_key: 'C', 

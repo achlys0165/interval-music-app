@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { useData } from '../App';
+import { useData } from '../contexts/DataContext';
 import { Search as SearchIcon, ExternalLink, Music } from 'lucide-react';
 import SongDetailModal from '../components/SongDetailModal';
 import { Song } from '../types';
@@ -31,7 +30,7 @@ const SearchPage: React.FC = () => {
            <input 
             type="text" 
             placeholder="Type song title, key, or category..."
-            className="w-full bg-[#0a0a0a] border-2 border-white/5 rounded-[2rem] py-6 pl-16 pr-8 text-xl focus:outline-none focus:border-white/20 focus:bg-white/[0.03] transition-all placeholder:text-white/10 font-medium"
+            className="w-full bg-[#0a0a0a] border-2 border-white/5 rounded-[2rem] py-6 pl-16 pr-8 text-xl focus:outline-none focus:border-white/20 focus:bg-white/[0.03] transition-all placeholder:text-white/10 font-medium text-white"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
            />

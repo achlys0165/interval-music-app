@@ -1,7 +1,7 @@
-
 import React from 'react';
-import { useAuth, useData } from '../App';
-import { ScheduleStatus } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
+import { ScheduleStatus, Schedule } from '../types';
 import { Check, X, Calendar as CalendarIcon, Clock } from 'lucide-react';
 
 const fromISODateString = (dateStr: string) => {
@@ -14,8 +14,8 @@ const MusicianSchedule: React.FC = () => {
   const { schedules, updateScheduleStatus } = useData();
 
   const mySchedules = schedules
-    .filter(s => s.musician_id === user?.id)
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .filter((s: Schedule) => s.musician_id === user?.id)
+    .sort((a: Schedule, b: Schedule) => a.date.localeCompare(b.date));
 
   return (
     <div className="space-y-10">
@@ -25,7 +25,7 @@ const MusicianSchedule: React.FC = () => {
       </header>
 
       <div className="grid gap-4">
-        {mySchedules.map((item) => {
+        {mySchedules.map((item: Schedule) => {
           const serviceDate = fromISODateString(item.date);
           return (
             <div 

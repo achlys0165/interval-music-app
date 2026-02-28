@@ -1,13 +1,10 @@
-
 import React, { useState, useMemo } from 'react';
-import { useAuth, useData } from '../App';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { ScheduleStatus, Schedule } from '../types';
 import { Calendar as CalendarIcon, Music, ChevronRight, Search, ChevronLeft, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-/**
- * Utility to convert a local Date object to YYYY-MM-DD string without timezone shifts
- */
 const toISODateString = (date: Date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -15,9 +12,6 @@ const toISODateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-/**
- * Utility to parse YYYY-MM-DD string as a local Date object at midnight
- */
 const fromISODateString = (dateStr: string) => {
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -29,26 +23,23 @@ const Dashboard: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Get all schedules for the current user that aren't rejected
   const mySchedules = useMemo(() => 
-    schedules.filter(s => s.musician_id === user?.id && s.status !== ScheduleStatus.REJECTED),
+    schedules.filter((s: Schedule) => s.musician_id === user?.id && s.status !== ScheduleStatus.REJECTED),
     [schedules, user?.id]
   );
 
-  // Future duties only - using local midnight comparison
   const upcomingDuties = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return mySchedules.filter(s => {
+    return mySchedules.filter((s: Schedule) => {
       const scheduleDate = fromISODateString(s.date);
       return scheduleDate.getTime() >= today.getTime();
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    }).sort((a: Schedule, b: Schedule) => a.date.localeCompare(b.date));
   }, [mySchedules]);
 
   const upcomingCount = upcomingDuties.length;
   const nextDuty = upcomingDuties[0];
 
-  // Calendar Logic
   const daysInMonth = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -71,7 +62,7 @@ const Dashboard: React.FC = () => {
 
   const getScheduleForDate = (date: Date): Schedule | undefined => {
     const dateStr = toISODateString(date);
-    return mySchedules.find(s => s.date === dateStr);
+    return mySchedules.find((s: Schedule) => s.date === dateStr);
   };
 
   return (
@@ -81,7 +72,6 @@ const Dashboard: React.FC = () => {
         <p className="text-white/40 mt-1 text-sm md:text-base italic">"Serve the Lord with gladness; come before Him with joyful songs."</p>
       </header>
 
-      {/* Main Stat Card - Interactive Sync with Schedule */}
       <div className="max-w-md">
         <button 
           onClick={() => setShowCalendar(!showCalendar)}
@@ -126,7 +116,6 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* Expandable Calendar View */}
       {showCalendar && (
         <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 md:p-8 animate-in fade-in slide-in-from-top-4 duration-500 shadow-2xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -220,7 +209,7 @@ const Dashboard: React.FC = () => {
           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-sm">
             {mySchedules.length > 0 ? (
               <div className="divide-y divide-white/5">
-                {mySchedules.slice(0, 3).map((s) => (
+                {mySchedules.slice(0, 3).map((s: Schedule) => (
                   <div key={s.id} className="p-5 md:p-6 flex items-center justify-between hover:bg-white/[0.02] transition-all group/item">
                     <div className="flex items-center gap-4 md:gap-6">
                       <div className="text-center w-10 md:w-12 shrink-0">

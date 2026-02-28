@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { useData } from '../App';
+import { useData } from '../contexts/DataContext';
 import { Music, Filter, ExternalLink } from 'lucide-react';
 import SongDetailModal from '../components/SongDetailModal';
 import { Song } from '../types';
@@ -30,7 +29,7 @@ const SetlistPage: React.FC = () => {
             <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={14} />
                 <select 
-                  className="bg-[#0a0a0a] border border-white/10 rounded-full py-2 pl-9 pr-8 text-xs appearance-none focus:outline-none cursor-pointer"
+                  className="bg-[#0a0a0a] border border-white/10 rounded-full py-2 pl-9 pr-8 text-xs appearance-none focus:outline-none cursor-pointer text-white"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 >

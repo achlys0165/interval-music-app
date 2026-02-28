@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { useData } from '../App';
-import { ScheduleStatus, UserRole } from '../types';
-import { supabase } from '../lib/supabase';
+import React, { useMemo, useEffect, useState } from 'react';
+import { useData } from '../contexts/DataContext';
+import { ScheduleStatus } from '../types';
+import { turso } from '../lib/turso';
 import { 
   Users, Music, Clock, CheckCircle, 
   ArrowUpRight, ShieldCheck, Zap
@@ -9,19 +9,19 @@ import {
 import { Link } from 'react-router-dom';
 
 const AdminDashboard: React.FC = () => {
-  const { songs, schedules, notifications, loading } = useData();
-  const [musicianCount, setMusicianCount] = React.useState(0);
+  const { songs, schedules, loading } = useData();
+  const [musicianCount, setMusicianCount] = useState(0);
 
-  // Get real musician count from Supabase
-  React.useEffect(() => {
+  // Get musician count from Turso
+  useEffect(() => {
     const fetchCount = async () => {
-      const { count, error } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'musician');
-      
-      if (!error && count !== null) {
-        setMusicianCount(count);
+      try {
+        const { rows } = await turso.execute({
+          sql: "SELECT COUNT(*) as count FROM users WHERE role = 'musician'"
+        });
+        setMusicianCount(Number(rows[0]?.count || 0));
+      } catch (error) {
+        console.error('Error fetching count:', error);
       }
     };
     fetchCount();

@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
-import { useAuth, useData } from '../App';
+import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { ScheduleStatus, Schedule } from '../types';
-import { Calendar as CalendarIcon, Music, ChevronRight, Search, ChevronLeft, MapPin } from 'lucide-react';
+import { Calendar as CalendarIcon, Music, ChevronRight, Search, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const toISODateString = (date: Date) => {
@@ -24,17 +24,17 @@ const MusicianDashboard: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const mySchedules = useMemo(() => 
-    schedules.filter(s => s.musician_id === user?.id && s.status !== ScheduleStatus.REJECTED),
+    schedules.filter((s: Schedule) => s.musician_id === user?.id && s.status !== ScheduleStatus.REJECTED),
     [schedules, user?.id]
   );
 
   const upcomingDuties = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return mySchedules.filter(s => {
+    return mySchedules.filter((s: Schedule) => {
       const scheduleDate = fromISODateString(s.date);
       return scheduleDate.getTime() >= today.getTime();
-    }).sort((a, b) => a.date.localeCompare(b.date));
+    }).sort((a: Schedule, b: Schedule) => a.date.localeCompare(b.date));
   }, [mySchedules]);
 
   const upcomingCount = upcomingDuties.length;
@@ -58,7 +58,7 @@ const MusicianDashboard: React.FC = () => {
 
   const getScheduleForDate = (date: Date): Schedule | undefined => {
     const dateStr = toISODateString(date);
-    return mySchedules.find(s => s.date === dateStr);
+    return mySchedules.find((s: Schedule) => s.date === dateStr);
   };
 
   return (
@@ -159,7 +159,7 @@ const MusicianDashboard: React.FC = () => {
           <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden">
             {mySchedules.length > 0 ? (
               <div className="divide-y divide-white/5">
-                {mySchedules.slice(0, 4).map((s) => (
+                {mySchedules.slice(0, 4).map((s: Schedule) => (
                   <div key={s.id} className="p-6 flex items-center justify-between hover:bg-white/[0.02] transition-all group">
                     <div className="flex items-center gap-6">
                       <div className="text-center w-10">

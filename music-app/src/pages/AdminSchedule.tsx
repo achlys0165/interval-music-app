@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useData } from '../App';
-import { UserRole, ScheduleStatus } from '../types';
-import { supabase } from '../lib/supabase';
+import { useData } from '../contexts/DataContext';
+import { ScheduleStatus } from '../types';
+import { turso } from '../lib/turso';
 import { 
   UserPlus, 
   Calendar, 
@@ -52,15 +52,17 @@ const AdminSchedule: React.FC = () => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
+  // Fetch musicians from Turso
   useEffect(() => {
     const fetchMusicians = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'musician');
-      
-      if (!error && data) {
-        setMusicians(data);
+      try {
+        const { rows } = await turso.execute({
+          sql: 'SELECT id, name, instrument FROM users WHERE role = ?',
+          args: ['musician']
+        });
+        setMusicians(rows);
+      } catch (error) {
+        console.error('Error fetching musicians:', error);
       }
     };
     fetchMusicians();
