@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 
 interface CalendarPickerProps {
@@ -10,6 +10,18 @@ interface CalendarPickerProps {
 const CalendarPicker: React.FC<CalendarPickerProps> = ({ selectedDate, onSelect, label }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const daysInMonth = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -60,7 +72,7 @@ const CalendarPicker: React.FC<CalendarPickerProps> = ({ selectedDate, onSelect,
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       {label && (
         <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1 mb-2 block">
           {label}
@@ -79,101 +91,95 @@ const CalendarPicker: React.FC<CalendarPickerProps> = ({ selectedDate, onSelect,
       </button>
 
       {isOpen && (
-        <>
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0a0a] border border-white/10 rounded-2xl p-4 z-50 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <button 
-                onClick={() => changeMonth(-1)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              <span className="font-bold text-sm">
-                {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </span>
-              <button 
-                onClick={() => changeMonth(1)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-
-            {/* Days header */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <div key={i} className="text-center text-[10px] font-black text-white/20 py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-1">
-              {daysInMonth.map((date, i) => {
-                if (!date) return <div key={`empty-${i}`} className="aspect-square" />;
-                
-                const selected = isSelected(date);
-                const today = isToday(date);
-                const isSunday = date.getDay() === 0;
-
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => handleSelect(date)}
-                    className={`
-                      aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-bold transition-all
-                      ${selected 
-                        ? 'bg-white text-black' 
-                        : today
-                          ? 'border border-white/40 text-white'
-                          : isSunday
-                            ? 'text-white/60 hover:bg-white/5'
-                            : 'text-white/40 hover:bg-white/5 hover:text-white'
-                      }
-                    `}
-                  >
-                    {date.getDate()}
-                    {isSunday && !selected && (
-                      <span className="text-[6px] uppercase mt-0.5 opacity-50">Sun</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick select buttons */}
-            <div className="mt-4 pt-4 border-t border-white/5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const nextSunday = new Date();
-                  nextSunday.setDate(nextSunday.getDate() + (7 - nextSunday.getDay()) % 7);
-                  if (nextSunday.getTime() < new Date().getTime()) {
-                    nextSunday.setDate(nextSunday.getDate() + 7);
-                  }
-                  handleSelect(nextSunday);
-                }}
-                className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-white/60"
-              >
-                Next Sunday
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelect(new Date())}
-                className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-white/60"
-              >
-                Today
-              </button>
-            </div>
+        <div className="absolute top-full left-0 mt-2 bg-[#0f0f0f] border border-white/10 rounded-2xl p-4 z-[100] shadow-2xl w-72">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <button 
+              onClick={() => changeMonth(-1)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="font-bold text-sm">
+              {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </span>
+            <button 
+              onClick={() => changeMonth(1)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
-        </>
+
+          {/* Days header */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+              <div key={i} className="text-center text-[10px] font-black text-white/20 py-2">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {daysInMonth.map((date, i) => {
+              if (!date) return <div key={`empty-${i}`} className="aspect-square" />;
+              
+              const selected = isSelected(date);
+              const today = isToday(date);
+              const isSunday = date.getDay() === 0;
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelect(date)}
+                  className={`
+                    aspect-square flex flex-col items-center justify-center rounded-lg text-sm font-bold transition-all
+                    ${selected 
+                      ? 'bg-white text-black' 
+                      : today
+                        ? 'border border-white/40 text-white'
+                        : isSunday
+                          ? 'text-white/60 hover:bg-white/5'
+                          : 'text-white/40 hover:bg-white/5 hover:text-white'
+                    }
+                  `}
+                >
+                  {date.getDate()}
+                  {isSunday && !selected && (
+                    <span className="text-[6px] uppercase mt-0.5 opacity-50">Sun</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick select buttons */}
+          <div className="mt-4 pt-4 border-t border-white/5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const nextSunday = new Date();
+                nextSunday.setDate(nextSunday.getDate() + (7 - nextSunday.getDay()) % 7);
+                if (nextSunday.getTime() < new Date().getTime()) {
+                  nextSunday.setDate(nextSunday.getDate() + 7);
+                }
+                handleSelect(nextSunday);
+              }}
+              className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-white/60"
+            >
+              Next Sunday
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelect(new Date())}
+              className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-white/60"
+            >
+              Today
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

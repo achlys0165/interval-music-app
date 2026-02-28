@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { turso } from '../lib/turso';
-import { Song, Schedule, Setlist, Notification, ScheduleStatus } from '../types';
+import { Song, Schedule, Setlist, Notification, ScheduleStatus, SetlistSongItem } from '../types';
 import { useAuth } from './AuthContext';
 
 interface DataContextType {
@@ -11,8 +11,9 @@ interface DataContextType {
   loading: boolean;
   addSong: (song: Omit<Song, 'id' | 'created_at'>) => Promise<void>;
   assignMusician: (assignment: { musician_id: string; date: string; role: string }) => Promise<void>;
+  removeSchedule: (scheduleId: string) => Promise<void>;
   updateScheduleStatus: (scheduleId: string, status: ScheduleStatus) => Promise<void>;
-  updateSetlist: (setlist: { date: string; song_ids: string[] }) => Promise<void>;
+  updateSetlist: (setlist: { date: string; song_ids: string[] | SetlistSongItem[] }) => Promise<void>;
   markNotificationsRead: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -62,14 +63,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         `
       });
       
-      // Match your actual Schedule type with song_ids
       const transformedRows: Schedule[] = rows.map((row: any) => ({
         id: row.id,
         musician_id: row.musician_id,
         date: row.date,
         role: row.role,
         status: row.status,
-        song_ids: row.song_ids ? JSON.parse(row.song_ids) : [], // Add this if your type requires it
         created_at: row.created_at,
         musician: row.musician_name ? {
           id: row.musician_id,
@@ -111,12 +110,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         args: [user.id]
       });
       
-      // Match your actual Notification type with 'type' property
       const typedNotifications: Notification[] = rows.map((row: any) => ({
         id: row.id,
         user_id: row.user_id,
         message: row.message,
-        type: row.type || 'info', // Add default type if missing
+        type: row.type || 'info',
         read: Boolean(row.read),
         created_at: row.created_at
       }));
@@ -184,6 +182,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             'notif-' + Date.now() + '-' + (u as any).id,
             (u as any).id,
             `New song added: ${songData.title}`,
+            'info',
             false
           ]
         });
@@ -198,11 +197,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const assignMusician = async (assignment: { musician_id: string; date: string; role: string }) => {
-      try {
-        console.log('Starting assignment for:', assignment);
-    
-        // Check for existing assignment
-        const { rows: existing } = await turso.execute({
+    try {
+      console.log('Starting assignment for:', assignment);
+  
+      const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM schedules WHERE date = ? AND role = ?',
         args: [assignment.date, assignment.role]
       });
@@ -211,69 +209,100 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(`Position ${assignment.role} is already filled for this date`);
       }
     
-      // Create schedule
       const scheduleId = 'sched-' + Date.now();
+      await turso.execute({
+        sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
+             VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+        args: [
+          scheduleId,
+          assignment.musician_id,
+          assignment.date,
+          assignment.role,
+          ScheduleStatus.PENDING
+        ]
+      });
+      console.log('Schedule created:', scheduleId);
+    
+      const notifId = 'notif-' + Date.now();
+      try {
         await turso.execute({
-          sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
-               VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+          sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+              VALUES (?, ?, ?, ?, ?, datetime('now'))`,
           args: [
-            scheduleId,
+            notifId,
             assignment.musician_id,
-            assignment.date,
-            assignment.role,
-            ScheduleStatus.PENDING
+            `You have been assigned as ${assignment.role} on ${assignment.date}`,
+            'info',
+            false
           ]
         });
-        console.log('Schedule created:', scheduleId);
+        console.log('Notification created successfully');
+      } catch (notifError) {
+        console.error('Notification creation failed:', notifError);
+      }
     
-        // Create notification for musician - FIXED
-        const notifId = 'notif-' + Date.now();
-        console.log('Creating notification:', {
-          id: notifId,
-          user_id: assignment.musician_id,
-          message: `You have been assigned as ${assignment.role} on ${assignment.date}`
+      await fetchSchedules();
+      await fetchNotifications();
+      console.log('Data refreshed');
+    
+    } catch (error) {
+      console.error('Error in assignMusician:', error);
+      throw error;
+    }
+  };
+
+  const removeSchedule = async (scheduleId: string) => {
+    try {
+      const { rows } = await turso.execute({
+        sql: 'SELECT * FROM schedules WHERE id = ?',
+        args: [scheduleId]
+      });
+      
+      if (rows.length === 0) {
+        throw new Error('Schedule not found');
+      }
+      
+      const schedule = rows[0] as any;
+      
+      await turso.execute({
+        sql: 'DELETE FROM schedules WHERE id = ?',
+        args: [scheduleId]
+      });
+      
+      try {
+        await turso.execute({
+          sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+                VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+          args: [
+            'notif-' + Date.now(),
+            schedule.musician_id,
+            `Your assignment as ${schedule.role} on ${schedule.date} has been removed`,
+            'warning',
+            false
+          ]
         });
-    
-        try {
-          await turso.execute({
-            sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
-                VALUES (?, ?, ?, ?, datetime('now'))`,
-            args: [
-             notifId,
-              assignment.musician_id,
-              `You have been assigned as ${assignment.role} on ${assignment.date}`,
-              false
-            ]
-          });
-          console.log('Notification created successfully');
-        } catch (notifError) {
-          console.error('Notification creation failed:', notifError);
-          // Don't throw - assignment succeeded even if notification failed
-        }
-    
-        // Refresh data
-        await fetchSchedules();
-        await fetchNotifications();
-        console.log('Data refreshed');
-    
-      } catch (error) {
-        console.error('Error in assignMusician:', error);
-        throw error;
-        }
+      } catch (notifError) {
+        console.error('Notification creation failed:', notifError);
+      }
+      
+      await fetchSchedules();
+      await fetchNotifications();
+    } catch (error) {
+      console.error('Error removing schedule:', error);
+      throw error;
+    }
   };
 
   const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus) => {
     try {
       console.log('Updating schedule status:', scheduleId, status);
       
-      // Update the schedule
       await turso.execute({
         sql: 'UPDATE schedules SET status = ? WHERE id = ?',
         args: [status, scheduleId]
       });
       console.log('Schedule status updated');
       
-      // Get schedule details with musician info
       const { rows } = await turso.execute({
         sql: `SELECT s.*, u.name as musician_name, u.id as musician_id 
               FROM schedules s 
@@ -290,7 +319,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const schedule = rows[0] as any;
       console.log('Schedule details:', schedule);
       
-      // Get all admin IDs
       const { rows: admins } = await turso.execute({
         sql: 'SELECT id FROM users WHERE role = ?',
         args: ['admin']
@@ -298,19 +326,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Found admins:', admins.length);
       
-      // Create notification for each admin
       for (const admin of admins) {
         const adminId = (admin as any).id;
         const notifId = 'notif-' + Date.now() + '-' + adminId;
         
         try {
           await turso.execute({
-            sql: `INSERT INTO notifications (id, user_id, message, read, created_at) 
-                  VALUES (?, ?, ?, ?, datetime('now'))`,
+            sql: `INSERT INTO notifications (id, user_id, message, type, read, created_at) 
+                  VALUES (?, ?, ?, ?, ?, datetime('now'))`,
             args: [
               notifId,
               adminId,
               `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
+              'info',
               false
             ]
           });
@@ -320,7 +348,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Refresh data
       await fetchSchedules();
       await fetchNotifications();
       console.log('Status update complete');
@@ -331,7 +358,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateSetlist = async (setlistData: { date: string; song_ids: string[] }) => {
+  const updateSetlist = async (setlistData: { date: string; song_ids: string[] | SetlistSongItem[] }) => {
     try {
       const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM setlists WHERE date = ?',
@@ -385,6 +412,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     addSong,
     assignMusician,
+    removeSchedule,
     updateScheduleStatus,
     updateSetlist,
     markNotificationsRead,

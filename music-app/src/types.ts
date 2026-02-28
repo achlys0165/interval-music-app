@@ -44,15 +44,22 @@ export interface Schedule {
   };
   role: string;
   status: ScheduleStatus;
-  song_ids: string[];
   created_at: string;
 }
 
-// Setlists
+// Setlists - Flexible Category System
+export type SetlistCategory = 'Worship' | 'Choir' | 'Special' | 'Prelude' | 'Offertory' | 'Communion' | 'Recessional' | 'Postlude';
+
+export interface SetlistSongItem {
+  song_id: string;
+  category_for_service: SetlistCategory;
+  order: number;
+}
+
 export interface Setlist {
   id: string;
   date: string;
-  song_ids: string[];
+  song_ids: string[] | SetlistSongItem[];
   theme?: string;
   created_at: string;
 }
