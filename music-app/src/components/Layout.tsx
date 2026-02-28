@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Music, Search, Bell, 
   Settings, LogOut, ShieldCheck, Menu, X
 } from 'lucide-react';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext'; // UPDATED: Use context instead of App
 import { UserRole } from '../types';
 
 const Layout: React.FC = () => {
