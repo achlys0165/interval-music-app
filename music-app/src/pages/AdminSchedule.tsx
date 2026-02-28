@@ -3,14 +3,8 @@ import { useData } from '../contexts/DataContext';
 import { ScheduleStatus } from '../types';
 import { turso } from '../lib/turso';
 import { 
-  UserPlus, 
-  Calendar, 
-  ChevronRight, 
-  Loader2, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  Plus
+  UserPlus, Calendar, CheckCircle, AlertCircle, Clock, 
+  Plus, X, Loader2, Users
 } from 'lucide-react';
 
 const ROLES = [
@@ -28,18 +22,23 @@ const AdminSchedule: React.FC = () => {
   const { schedules, assignMusician, loading } = useData();
   const [musicians, setMusicians] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAssignForm, setShowAssignForm] = useState(false);
+  
   const [newAssignment, setNewAssignment] = useState({ 
     musician_id: '', 
     date: '', 
-    role: '', 
-    song_ids: [] as string[] 
+    role: ''
   });
 
+  // Generate next 8 Sundays
   const nextSundays = useMemo(() => {
     const sundays = [];
     const date = new Date();
     date.setDate(date.getDate() + (7 - date.getDay()) % 7);
-    for (let i = 0; i < 6; i++) {
+    if (date.getTime() < new Date().getTime()) {
+      date.setDate(date.getDate() + 7);
+    }
+    for (let i = 0; i < 8; i++) {
       sundays.push(toISODateString(new Date(date)));
       date.setDate(date.getDate() + 7);
     }
@@ -48,7 +47,8 @@ const AdminSchedule: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState(nextSundays[0]);
 
-  const sundayAssignments = useMemo(() => {
+  // Get assignments for selected date
+  const dateAssignments = useMemo(() => {
     return schedules.filter(s => s.date === selectedDate);
   }, [schedules, selectedDate]);
 
@@ -75,11 +75,35 @@ const AdminSchedule: React.FC = () => {
     setIsSubmitting(true);
     try {
       await assignMusician(newAssignment);
-      setNewAssignment({ musician_id: '', date: '', role: '', song_ids: [] });
+      setNewAssignment({ musician_id: '', date: '', role: '' });
+      setShowAssignForm(false);
     } catch (error) {
       console.error('Error assigning musician:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status: ScheduleStatus) => {
+    switch (status) {
+      case ScheduleStatus.ACCEPTED:
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-green-500/30 bg-green-500/5 text-green-500 text-[10px] font-black uppercase tracking-widest">
+            <CheckCircle size={12} /> Confirmed
+          </div>
+        );
+      case ScheduleStatus.REJECTED:
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-500/30 bg-red-500/5 text-red-500 text-[10px] font-black uppercase tracking-widest">
+            <AlertCircle size={12} /> Declined
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/5 text-yellow-500 text-[10px] font-black uppercase tracking-widest">
+            <Clock size={12} className="animate-pulse" /> Pending
+          </div>
+        );
     }
   };
 
@@ -92,162 +116,206 @@ const AdminSchedule: React.FC = () => {
   }
 
   return (
-    <div className="space-y-10">
-      <header>
-        <h1 className="text-3xl font-black italic tracking-tighter uppercase">Team Orchestration</h1>
-        <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Coordinate musician assignments across Sundays</p>
+    <div className="space-y-8">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black italic tracking-tighter uppercase">Team Schedule</h1>
+          <p className="text-white/40 mt-1 uppercase text-xs tracking-[0.2em]">Assign musicians to Sunday services</p>
+        </div>
+        <button 
+          onClick={() => setShowAssignForm(!showAssignForm)}
+          className="flex items-center gap-3 px-6 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-white/90 transition-all"
+        >
+          {showAssignForm ? <><X size={16} /> Cancel</> : <><Plus size={16} /> Assign Musician</>}
+        </button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Date Selection */}
-        <div className="lg:col-span-1 space-y-6">
-           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6 space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white/30 flex items-center gap-2 px-1">
-                <Calendar size={14} /> Select Sunday
-              </h3>
-              <div className="space-y-2">
-                {nextSundays.map(date => {
-                   const isSelected = selectedDate === date;
-                   const count = schedules.filter(s => s.date === date).length;
-                   return (
-                     <button 
-                       key={date}
-                       onClick={() => setSelectedDate(date)}
-                       className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center justify-between ${
-                         isSelected ? 'bg-white text-black border-white shadow-xl' : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
-                       }`}
-                     >
-                       <div>
-                         <p className="text-[10px] uppercase font-black opacity-60">
-                           {new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                         </p>
-                         <p className="font-black text-sm tracking-tight">Lord's Day Service</p>
-                       </div>
-                       {count > 0 && (
-                         <span className={`text-[10px] font-black px-2 py-1 rounded-md ${isSelected ? 'bg-black text-white' : 'bg-white/10 text-white'}`}>
-                            {count}
-                         </span>
-                       )}
-                     </button>
-                   );
-                })}
-              </div>
-           </div>
+      {/* Assignment Form */}
+      {showAssignForm && (
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 animate-in fade-in slide-in-from-top-4">
+          <h3 className="text-lg font-black italic mb-6 flex items-center gap-2">
+            <UserPlus size={20} /> New Assignment
+          </h3>
+          <form onSubmit={handleAssign} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Musician</label>
+              <select 
+                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
+                value={newAssignment.musician_id} 
+                onChange={(e) => setNewAssignment({...newAssignment, musician_id: e.target.value})} 
+                required
+              >
+                <option value="">Select musician...</option>
+                {musicians.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.instrument})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Service Date</label>
+              <select 
+                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
+                value={newAssignment.date} 
+                onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} 
+                required
+              >
+                <option value="">Select Sunday...</option>
+                {nextSundays.map(date => (
+                  <option key={date} value={date}>
+                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Role/Position</label>
+              <select 
+                className="w-full bg-black border border-white/10 rounded-xl py-4 px-4 text-sm text-white"
+                value={newAssignment.role} 
+                onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})} 
+                required
+              >
+                <option value="">Select role...</option>
+                {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-3">
+              <button 
+                disabled={isSubmitting} 
+                className="w-full py-4 bg-white text-black rounded-xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 hover:bg-white/90 transition-all disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : 'Create Assignment'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
-           {/* Quick Assignment Form */}
-           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 space-y-6">
-              <h3 className="font-bold text-lg italic flex items-center gap-2"><UserPlus size={20} /> Assign Duty</h3>
-              <form onSubmit={handleAssign} className="space-y-4">
-                 <div className="space-y-2">
-                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Musician</label>
-                   <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
-                     value={newAssignment.musician_id} 
-                     onChange={(e) => setNewAssignment({...newAssignment, musician_id: e.target.value})} 
-                     required
-                   >
-                      <option value="">Choose...</option>
-                      {musicians.map(u => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                   </select>
-                 </div>
-                 <div className="space-y-2">
-                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Date</label>
-                   <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
-                     value={newAssignment.date} 
-                     onChange={(e) => setNewAssignment({...newAssignment, date: e.target.value})} 
-                     required
-                   >
-                      <option value="">Select...</option>
-                      {nextSundays.map(date => <option key={date} value={date}>{date}</option>)}
-                   </select>
-                 </div>
-                 <div className="space-y-2">
-                   <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold ml-1">Position</label>
-                   <select 
-                     className="w-full bg-black border border-white/10 rounded-xl py-3 px-4 text-sm" 
-                     value={newAssignment.role} 
-                     onChange={(e) => setNewAssignment({...newAssignment, role: e.target.value})} 
-                     required
-                   >
-                      <option value="">Select...</option>
-                      {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
-                   </select>
-                 </div>
-                 <button 
-                   disabled={isSubmitting} 
-                   className="w-full py-4 bg-white text-black rounded-xl font-bold uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg"
-                 >
-                   {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : 'Dispatch Task'}
-                 </button>
-              </form>
-           </div>
+      {/* Date Selector */}
+      <div className="flex gap-2 overflow-x-auto pb-4 border-b border-white/5">
+        {nextSundays.map(date => {
+          const isSelected = selectedDate === date;
+          const count = schedules.filter(s => s.date === date).length;
+          return (
+            <button 
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`flex-shrink-0 text-left p-4 rounded-2xl border transition-all min-w-[140px] ${
+                isSelected 
+                  ? 'bg-white text-black border-white shadow-xl' 
+                  : 'bg-[#0a0a0a] border-white/10 text-white hover:bg-white/5'
+              }`}
+            >
+              <p className={`text-[10px] uppercase font-black ${isSelected ? 'text-black/60' : 'text-white/40'}`}>
+                {new Date(date).toLocaleDateString('en-US', { month: 'short' })}
+              </p>
+              <p className="text-2xl font-black italic">{new Date(date).getDate()}</p>
+              <p className={`text-[10px] uppercase font-bold mt-1 ${isSelected ? 'text-black/40' : 'text-white/20'}`}>
+                {count} assigned
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Roster Grid */}
+      <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
+          <h2 className="text-xl font-black italic tracking-tighter flex items-center gap-2">
+            <Users size={20} className="text-white/40" /> 
+            Sunday Roster
+          </h2>
+          <span className="text-[10px] uppercase font-black text-white/40 tracking-widest">
+            {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
         </div>
 
-        {/* Detailed Lineup for Sunday */}
-        <div className="lg:col-span-3 space-y-4">
-           <div className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] overflow-hidden min-h-[600px] shadow-sm flex flex-col">
-              <div className="p-8 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-                 <div>
-                    <h2 className="text-2xl font-black italic tracking-tighter">Lineup Oversight</h2>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-bold mt-1">Service: {selectedDate}</p>
-                 </div>
-                 <div className="flex items-center gap-3">
-                   <span className="text-3xl font-black italic">{sundayAssignments.length}</span>
-                   <span className="text-[10px] uppercase font-bold text-white/20 tracking-widest">Active Duties</span>
-                 </div>
-              </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {ROLES.map(role => {
+            const assignment = dateAssignments.find(s => s.role === role);
+            const musician = assignment?.musician;
 
-              <div className="flex-1 p-8 grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto">
-                 {ROLES.map(role => {
-                    const assignment = sundayAssignments.find(s => s.role === role);
-                    const musician = assignment?.musician;
-                    return (
-                      <div 
-                        key={role} 
-                        className={`p-6 rounded-[2rem] border transition-all flex items-center justify-between group ${
-                          assignment ? 'bg-white/[0.03] border-white/10' : 'border-dashed border-white/5 opacity-30 hover:opacity-100 hover:bg-white/[0.01]'
-                        }`}
-                      >
-                         <div className="space-y-1">
-                            <p className="text-[10px] uppercase font-black tracking-widest text-white/20">{role}</p>
-                            {musician ? (
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-black italic text-xs">
-                                  {musician.name?.charAt(0)}
-                                </div>
-                                <p className="font-bold text-lg">{musician.name}</p>
-                              </div>
-                            ) : (
-                              <p className="font-bold text-white/20 italic mt-2">Open Position</p>
-                            )}
-                         </div>
-
-                         {assignment ? (
-                           <div className={`flex flex-col items-end gap-1 px-4 py-2 rounded-2xl border ${
-                              assignment.status === ScheduleStatus.ACCEPTED ? 'border-green-500/20 text-green-500 bg-green-500/5' :
-                              assignment.status === ScheduleStatus.REJECTED ? 'border-red-500/20 text-red-500 bg-red-500/5' :
-                              'border-yellow-500/20 text-yellow-500 bg-yellow-500/5'
-                           }`}>
-                              <span className="text-[10px] font-black uppercase tracking-widest">{assignment.status}</span>
-                              {assignment.status === ScheduleStatus.ACCEPTED ? <CheckCircle size={14} /> : 
-                               assignment.status === ScheduleStatus.REJECTED ? <AlertCircle size={14} /> : <Clock size={14} className="animate-pulse" />}
-                           </div>
-                         ) : (
-                           <button 
-                            onClick={() => setNewAssignment({ ...newAssignment, role, date: selectedDate })}
-                            className="p-3 border border-white/5 rounded-2xl hover:bg-white hover:text-black transition-all"
-                           >
-                              <Plus size={20} />
-                           </button>
-                         )}
+            return (
+              <div 
+                key={role} 
+                className={`p-5 rounded-2xl border transition-all ${
+                  assignment 
+                    ? 'bg-white/[0.03] border-white/10' 
+                    : 'border-dashed border-white/5 bg-transparent opacity-40'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-white/20">{role}</p>
+                    
+                    {musician ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-black italic text-sm">
+                          {musician.name?.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-lg">{musician.name}</p>
+                          {getStatusBadge(assignment.status)}
+                        </div>
                       </div>
-                    );
-                 })}
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center text-white/20">
+                          <Plus size={16} />
+                        </div>
+                        <p className="font-bold text-white/20 italic">Open Position</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {!assignment && (
+                    <button 
+                      onClick={() => {
+                        setNewAssignment({ ...newAssignment, role, date: selectedDate });
+                        setShowAssignForm(true);
+                      }}
+                      className="p-2 border border-white/10 rounded-lg hover:bg-white hover:text-black transition-all"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
-           </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* All Assignments List */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-black italic uppercase tracking-widest text-white/40 px-2">
+          Recent Assignments
+        </h3>
+        <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden divide-y divide-white/5">
+          {schedules.slice().reverse().slice(0, 10).map(s => (
+            <div key={s.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="text-center w-12">
+                  <p className="text-[9px] uppercase font-black text-white/20">
+                    {new Date(s.date).toLocaleDateString('en-US', { month: 'short' })}
+                  </p>
+                  <p className="text-xl font-black italic">{new Date(s.date).getDate()}</p>
+                </div>
+                <div className="w-px h-8 bg-white/10" />
+                <div>
+                  <p className="font-bold">{s.musician?.name || 'Unknown'}</p>
+                  <p className="text-[10px] uppercase font-bold text-white/40 tracking-widest">{s.role}</p>
+                </div>
+              </div>
+              {getStatusBadge(s.status)}
+            </div>
+          ))}
+          
+          {schedules.length === 0 && (
+            <div className="p-12 text-center text-white/20 italic">
+              No assignments created yet.
+            </div>
+          )}
         </div>
       </div>
     </div>

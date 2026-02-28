@@ -11,11 +11,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import AdminPanel from './pages/AdminPanel';
 import AdminSchedule from './pages/AdminSchedule';
 import AdminSongs from './pages/AdminSongs';
 import MusicianDashboard from './pages/MusicianDashboard';
-import MusicianSchedule from './pages/MusicianSchedule';
 import SchedulePage from './pages/SchedulePage';
 import SetlistPage from './pages/SetlistPage';
 import SearchPage from './pages/SearchPage';
@@ -87,8 +85,7 @@ const AppRoutes: React.FC = () => {
       {/* Admin Routes - With Layout/Navbar */}
       <Route element={<ProtectedLayout adminOnly />}>
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/panel" element={<AdminPanel />} />
-        <Route path="/admin/schedule" element={<AdminSchedule />} />
+        <Route path="/admin/schedule" element={<AdminSchedule />} /> {/* Roster + Assign Duty combined */}
         <Route path="/admin/songs" element={<AdminSongs />} />
       </Route>
 
