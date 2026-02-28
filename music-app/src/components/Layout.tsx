@@ -15,7 +15,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Start closed on all devices
   const [isMobile, setIsMobile] = useState(false);
 
   // Check if mobile on mount and resize
@@ -23,10 +23,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (mobile) {
-        setIsSidebarOpen(false);
-      } else {
+      // Only auto-open on desktop, keep closed on mobile
+      if (!mobile) {
         setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
       }
     };
     
@@ -38,6 +39,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  // Toggle sidebar with proper mobile handling
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prev => !prev);
+  };
+
+  // Close sidebar (for mobile)
+  const closeSidebar = () => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
   };
 
   // Different nav items for admin vs musician
@@ -74,16 +87,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }
 
   return (
-    <div className="flex h-screen bg-black text-white overflow-hidden">
+    <div className="flex h-screen bg-black text-white overflow-hidden relative">
+      {/* Mobile Overlay - Click to close */}
+      {isSidebarOpen && isMobile && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={closeSidebar}
+          style={{ touchAction: 'none' }} // Prevent scrolling when overlay is open
+        />
+      )}
+
       {/* Sidebar */}
       <aside 
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          transition-all duration-300 ease-in-out
+          transition-transform duration-300 ease-in-out
           border-r border-white/10 bg-[#050505] 
-          flex flex-col h-full
-          ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full lg:w-20 lg:translate-x-0'}
-          ${isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:opacity-100'}
+          flex flex-col h-full w-64
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
         `}
       >
         {/* Logo Section */}
@@ -92,13 +114,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="min-w-[40px] w-10 h-10 bg-white flex items-center justify-center rounded-xl shrink-0">
                <span className="text-black font-black text-2xl italic leading-none">H</span>
             </div>
-            <h1 className={`text-xl font-black tracking-tighter text-white whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0'}`}>
+            <h1 className="text-xl font-black tracking-tighter text-white whitespace-nowrap">
               HIMIG
             </h1>
           </div>
+          {/* Close button - visible on mobile when open */}
           <button 
-            onClick={() => setIsSidebarOpen(false)} 
-            className="lg:hidden text-white/60 hover:text-white p-1"
+            onClick={closeSidebar}
+            className="lg:hidden text-white/60 hover:text-white p-2 hover:bg-white/10 rounded-lg"
+            aria-label="Close menu"
           >
             <X size={24} />
           </button>
@@ -113,9 +137,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => isMobile && setIsSidebarOpen(false)}
+                onClick={closeSidebar} // Close on mobile when clicking a link
                 className={`
-                  flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all group overflow-hidden
+                  flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all group
                   ${isActive 
                     ? 'bg-white text-black font-bold shadow-lg' 
                     : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -125,7 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="shrink-0 w-6 flex justify-center">
                   <Icon size={22} />
                 </div>
-                <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 absolute'}`}>
+                <span className="text-sm font-medium whitespace-nowrap">
                   {item.name}
                 </span>
               </Link>
@@ -137,7 +161,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="p-4 border-t border-white/10 shrink-0 space-y-2">
           <Link
             to="/settings"
-            onClick={() => isMobile && setIsSidebarOpen(false)}
+            onClick={closeSidebar}
             className={`
               flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all
               ${location.pathname === '/settings' 
@@ -147,16 +171,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             `}
           >
             <Settings size={22} className="shrink-0" />
-            <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+            <span className="text-sm font-medium whitespace-nowrap">
               Settings
             </span>
           </Link>
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-4 px-4 py-3.5 w-full text-white/60 hover:text-red-400 transition-colors rounded-xl hover:bg-red-400/10 group"
+            className="flex items-center gap-4 px-4 py-3.5 w-full text-white/60 hover:text-red-400 transition-colors rounded-xl hover:bg-red-400/10 group text-left"
           >
             <LogOut size={22} className="shrink-0" />
-            <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`}>
+            <span className="text-sm font-medium whitespace-nowrap">
               Logout
             </span>
           </button>
@@ -166,15 +190,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 bg-black relative overflow-hidden">
         {/* Header */}
-        <header className="h-16 lg:h-20 border-b border-white/10 flex items-center justify-between px-4 lg:px-8 bg-black/50 backdrop-blur-md shrink-0 z-40">
+        <header className="h-16 lg:h-20 border-b border-white/10 flex items-center justify-between px-4 lg:px-8 bg-black/50 backdrop-blur-md shrink-0 z-30">
            <div className="flex items-center gap-4">
+              {/* Hamburger Button - Fixed click handler */}
               <button 
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                className="text-white/60 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg"
-                aria-label="Toggle Sidebar"
+                onClick={toggleSidebar}
+                className="text-white/60 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg lg:hidden"
+                aria-label="Toggle menu"
+                type="button"
+              >
+                {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+              
+              {/* Desktop toggle (optional) */}
+              <button 
+                onClick={toggleSidebar}
+                className="hidden lg:block text-white/60 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                aria-label="Toggle sidebar"
               >
                 <Menu size={24} />
               </button>
+
               <div className="hidden sm:block">
                 <h2 className="text-xs font-black uppercase tracking-widest text-white/40">
                   {user?.role === UserRole.ADMIN ? 'Administrator' : 'Musician'}
@@ -207,14 +243,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </main>
       </div>
-
-      {/* Mobile Overlay */}
-      {isSidebarOpen && isMobile && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
     </div>
   );
 };
