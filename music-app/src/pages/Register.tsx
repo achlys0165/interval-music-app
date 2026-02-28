@@ -201,12 +201,12 @@ const Register: React.FC = () => {
                 onChange={(value) => setFormData({...formData, instrument: value})}
                 options={[
                   { value: '', label: 'Select instrument...' },
-                  { value: 'Vocals', label: 'Vocals' },
-                  { value: 'Keys', label: 'Keys / Piano' },
-                  { value: 'Guitar', label: 'Guitar' },
-                  { value: 'Bass', label: 'Bass' },
                   { value: 'Drums', label: 'Drums' },
-                  { value: 'Violin', label: 'Violin' },
+                  { value: 'Keys', label: 'Keys / Piano' },
+                  { value: 'Synth', label: 'Synth' },
+                  { value: 'Bass', label: 'Bass' },
+                  { value: 'Rhythm Guitar', label: 'Rhythm Guitar' },
+                  { value: 'Lead Guitar', label: 'Lead Guitar' },
                   { value: 'Other', label: 'Other' }
                 ]}
                 disabled={loading}
