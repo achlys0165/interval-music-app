@@ -4,13 +4,18 @@ import { ScheduleStatus } from '../types';
 import { turso } from '../lib/turso';
 import { 
   UserPlus, CheckCircle, AlertCircle, Clock, 
-  Plus, X, Loader2, Users, Calendar as CalendarIcon, Trash2
+  Plus, X, Loader2, Users, Trash2
 } from 'lucide-react';
 import CalendarPicker from '../components/CalendarPicker';
 
+// Only 6 roles
 const ROLES = [
-  'Keys', 'Synth', 'Drums', 'Bass', 'Rhythm Guitar', 'Lead Guitar', 
-  'Vocals (Lead)', 'Vocals (Backing)', 'Sound Engineer', 'Projectionist'
+  'Keys', 
+  'Synth', 
+  'Drums', 
+  'Bass', 
+  'Rhythm Guitar', 
+  'Lead Guitar'
 ];
 
 const toISODateString = (date: Date) => {
@@ -21,7 +26,7 @@ const toISODateString = (date: Date) => {
 };
 
 const AdminSchedule: React.FC = () => {
-  const { schedules, assignMusician, removeSchedule, loading, refreshData } = useData();
+  const { schedules, assignMusician, removeSchedule, loading } = useData();
   const [musicians, setMusicians] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAssignForm, setShowAssignForm] = useState(false);
@@ -160,7 +165,7 @@ const AdminSchedule: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="space-y-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -246,10 +251,10 @@ const AdminSchedule: React.FC = () => {
         </div>
       )}
 
-      {/* Date Selector - FIXED LAYOUT */}
+      {/* Date Selector */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Calendar - Fixed width, no overlap */}
+          {/* Calendar */}
           <div className="w-full lg:w-80 flex-shrink-0">
             <CalendarPicker
               label="Select Service Date"
@@ -310,7 +315,7 @@ const AdminSchedule: React.FC = () => {
         </div>
       </div>
 
-      {/* Roster Grid - IMPROVED LAYOUT */}
+      {/* Roster Grid - 6 roles in 2 rows of 3 */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-hidden">
         <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-xl font-black italic tracking-tighter flex items-center gap-2">
@@ -322,7 +327,7 @@ const AdminSchedule: React.FC = () => {
           </span>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {ROLES.map(role => {
             const assignment = dateAssignments.find(s => s.role === role);
             const musician = assignment?.musician;
@@ -385,43 +390,6 @@ const AdminSchedule: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* All Assignments List */}
-      <div className="bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-hidden">
-        <div className="p-6 border-b border-white/5">
-          <h2 className="text-lg font-black italic tracking-tighter">All Assignments for This Date</h2>
-        </div>
-        <div className="divide-y divide-white/5">
-          {dateAssignments.length === 0 ? (
-            <div className="p-12 text-center text-white/20 italic">
-              No assignments for this date yet.
-            </div>
-          ) : (
-            dateAssignments.map(assignment => (
-              <div key={assignment.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center font-bold text-white/40">
-                    {assignment.musician?.name?.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold">{assignment.musician?.name}</p>
-                    <p className="text-xs text-white/40">{assignment.role}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(assignment.status)}
-                  <button 
-                    onClick={() => handleRemove(assignment.id)}
-                    className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </div>
     </div>

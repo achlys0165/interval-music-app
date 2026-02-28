@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { turso } from '../lib/turso';
-import { Song, Schedule, Setlist, Notification, ScheduleStatus, SetlistSongItem } from '../types';
+import { Song, Schedule, Setlist, Notification, ScheduleStatus } from '../types';
 import { useAuth } from './AuthContext';
 
 interface DataContextType {
@@ -13,7 +13,7 @@ interface DataContextType {
   assignMusician: (assignment: { musician_id: string; date: string; role: string }) => Promise<void>;
   removeSchedule: (scheduleId: string) => Promise<void>;
   updateScheduleStatus: (scheduleId: string, status: ScheduleStatus) => Promise<void>;
-  updateSetlist: (setlist: { date: string; song_ids: string[] | SetlistSongItem[] }) => Promise<void>;
+  updateSetlist: (setlist: { date: string; song_ids: string[] }) => Promise<void>;
   markNotificationsRead: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -358,7 +358,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateSetlist = async (setlistData: { date: string; song_ids: string[] | SetlistSongItem[] }) => {
+  const updateSetlist = async (setlistData: { date: string; song_ids: string[] }) => {
     try {
       const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM setlists WHERE date = ?',

@@ -59,7 +59,7 @@ export interface SetlistSongItem {
 export interface Setlist {
   id: string;
   date: string;
-  song_ids: string[] | SetlistSongItem[];
+  song_ids: string[];
   theme?: string;
   created_at: string;
 }
