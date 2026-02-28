@@ -68,7 +68,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (isAdmin) {
       return [
         ...commonItems,
-        { name: 'Admin Panel', path: '/admin/panel', icon: LayoutDashboard },
         { name: 'Song Vault', path: '/admin/songs', icon: Music },
       ];
     }
