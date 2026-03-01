@@ -98,24 +98,31 @@ const MusicianSchedule: React.FC = () => {
           return (
             <div 
               key={item.id} 
-              onClick={() => !isPast && !isPending && handleViewSetlist(item.date)}
-              className={`bg-[#0a0a0a] border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-white/20 transition-all group ${!isPast && !isPending ? 'cursor-pointer' : ''} ${isPast ? 'opacity-60' : ''}`}
+              className={`bg-[#0a0a0a] border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-white/20 transition-all group ${!isPast ? 'cursor-pointer' : ''} ${isPast ? 'opacity-60' : ''}`}
             >
               <div className="flex items-center gap-8">
-                <div className="bg-white/5 border border-white/10 p-5 rounded-3xl text-center min-w-[90px] group-hover:bg-white group-hover:text-black transition-all">
+                {/* Clickable date block */}
+                <div 
+                  onClick={() => !isPast && handleViewSetlist(item.date)}
+                  className={`bg-white/5 border border-white/10 p-5 rounded-3xl text-center min-w-[90px] transition-all ${!isPast ? 'cursor-pointer hover:bg-white hover:text-black group-hover:bg-white group-hover:text-black' : ''}`}
+                >
                   <p className="text-[10px] uppercase font-black opacity-50">{serviceDate.toLocaleDateString('en-US', { month: 'short' })}</p>
                   <p className="text-4xl font-black italic">{serviceDate.getDate()}</p>
                 </div>
+                
                 <div>
                   <h3 className="text-xl font-bold">{item.role}</h3>
                   <div className="flex items-center gap-4 text-white/30 text-[10px] font-black uppercase tracking-widest mt-2">
                     <span className="flex items-center gap-1.5"><Clock size={12} /> 08:00 Call</span>
                     <span className="flex items-center gap-1.5"><CalendarIcon size={12} /> Sunday Service</span>
                   </div>
-                  {!isPast && !isPending && (
-                    <p className="text-[10px] text-white/40 mt-2 flex items-center gap-1 group-hover:text-white/60 transition-colors">
+                  {!isPast && (
+                    <button 
+                      onClick={() => handleViewSetlist(item.date)}
+                      className="text-[10px] text-white/40 mt-2 flex items-center gap-1 hover:text-white/60 transition-colors"
+                    >
                       <Music size={10} /> View Setlist <ChevronRight size={10} />
-                    </p>
+                    </button>
                   )}
                 </div>
               </div>
@@ -155,9 +162,7 @@ const MusicianSchedule: React.FC = () => {
                     {item.status === ScheduleStatus.REJECTED && item.decline_reason && (
                       <div className="text-right max-w-[250px]">
                         <p className="text-[9px] text-white/30 uppercase tracking-wider mb-0.5">Reason:</p>
-                        <p className="text-[11px] text-white/50 italic">
-                          "{item.decline_reason}"
-                        </p>
+                        <p className="text-[11px] text-white/50 italic">"{item.decline_reason}"</p>
                       </div>
                     )}
                   </div>
