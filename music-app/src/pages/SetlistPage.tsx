@@ -59,42 +59,45 @@ const SetlistPage: React.FC = () => {
   }, [currentSetlist, songs]);
 
   // Get songs with their assigned categories for this date
-  const dateSongs = useMemo((): SongWithAssignment[] => {
-    const result: SongWithAssignment[] = [];
-    
-    parsedSetlist.forEach(item => {
-      const song = songs.find(s => s.id === item.song_id);
-      if (song) {
-        result.push({
-          ...song,
-          assignedCategory: item.category,
-          order: item.order
-        });
-      }
-    });
-    
-    return result.sort((a, b) => a.order - b.order);
-  }, [parsedSetlist, songs]);
+  // Get songs with their assigned categories for this date
+const dateSongs = useMemo((): SongWithAssignment[] => {
+  if (!parsedSetlist.length) return [];
+  
+  return parsedSetlist.reduce<SongWithAssignment[]>((acc, item) => {
+    const song = songs.find(s => s.id === item.song_id);
+    if (song) {
+      acc.push({
+        ...song,
+        assignedCategory: item.category,
+        order: item.order
+      });
+    }
+    return acc;
+  }, []).sort((a, b) => a.order - b.order);
+}, [parsedSetlist, songs]);
 
-  // Group by assigned category (for display tabs)
-  const groupedByCategory = useMemo(() => {
-    const grouped: Record<SetlistCategory, SongWithAssignment[]> = {
-      'Pre-Service': [],
-      'Choir': [],
-      'Worship': []
-    };
-    
-    dateSongs.forEach(song => {
-      grouped[song.assignedCategory].push(song);
-    });
-    
-    // Sort each group by order
-    Object.keys(grouped).forEach(key => {
-      grouped[key as SetlistCategory].sort((a, b) => a.order - b.order);
-    });
-    
-    return grouped;
-  }, [dateSongs]);
+// Group by assigned category (for display tabs)
+const groupedByCategory = useMemo(() => {
+  const grouped: Record<SetlistCategory, SongWithAssignment[]> = {
+    'Pre-Service': [],
+    'Choir': [],
+    'Worship': []
+  };
+  
+  dateSongs.forEach(song => {
+    const category = song.assignedCategory;
+    if (category && grouped[category]) {
+      grouped[category].push(song);
+    }
+  });
+  
+  // Sort each group by order
+  SETLIST_CATEGORIES.forEach(category => {
+    grouped[category].sort((a, b) => a.order - b.order);
+  });
+  
+  return grouped;
+}, [dateSongs]);
 
   // Available songs for current tab (not already in setlist)
   const availableSongs = useMemo(() => {
