@@ -236,8 +236,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
       const scheduleId = 'sched-' + Date.now();
       await turso.execute({
-        sql: `INSERT INTO schedules (id, musician_id, date, role, status, created_at) 
-             VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+        sql: `INSERT INTO schedules (id, musician_id, date, role, status, decline_reason, created_at) 
+             VALUES (?, ?, ?, ?, ?, NULL, datetime('now'))`,
         args: [
           scheduleId,
           assignment.musician_id,
@@ -316,11 +316,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus, declineReason?: string) => {
     try {
+      console.log('Updating schedule:', { scheduleId, status, declineReason });
+      
+      // Update with decline reason if provided
       await turso.execute({
         sql: 'UPDATE schedules SET status = ?, decline_reason = ? WHERE id = ?',
         args: [status, declineReason || null, scheduleId]
       });
       
+      // Fetch updated schedule with musician info
       const { rows } = await turso.execute({
         sql: `SELECT s.*, u.name as musician_name, u.id as musician_id 
               FROM schedules s 
@@ -335,6 +339,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const schedule = rows[0] as any;
       
+      // Notify admins
       const { rows: admins } = await turso.execute({
         sql: 'SELECT id FROM users WHERE role = ?',
         args: ['admin']
@@ -368,6 +373,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await fetchSchedules();
       await fetchNotifications();
+      console.log('Schedule updated successfully');
     } catch (error) {
       console.error('Error in updateScheduleStatus:', error);
       throw error;

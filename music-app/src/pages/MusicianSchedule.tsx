@@ -14,30 +14,72 @@ const MusicianSchedule: React.FC = () => {
   const { user } = useAuth();
   const { schedules, updateScheduleStatus } = useData();
   const navigate = useNavigate();
-  const [declineModal, setDeclineModal] = useState<{ open: boolean; scheduleId: string | null }>({
+  
+  // Decline modal state
+  const [declineModal, setDeclineModal] = useState<{ 
+    open: boolean; 
+    scheduleId: string | null;
+    role: string;
+    date: string;
+  }>({
     open: false,
-    scheduleId: null
+    scheduleId: null,
+    role: '',
+    date: ''
   });
   const [declineReason, setDeclineReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const mySchedules = schedules
     .filter((s: Schedule) => s.musician_id === user?.id)
     .sort((a: Schedule, b: Schedule) => a.date.localeCompare(b.date));
 
+  const openDeclineModal = (schedule: Schedule) => {
+    setDeclineModal({
+      open: true,
+      scheduleId: schedule.id,
+      role: schedule.role,
+      date: schedule.date
+    });
+    setDeclineReason('');
+  };
+
   const handleDecline = async () => {
     if (!declineModal.scheduleId || !declineReason.trim()) return;
     
+    setIsSubmitting(true);
     try {
-      await updateScheduleStatus(declineModal.scheduleId, ScheduleStatus.REJECTED, declineReason);
-      setDeclineModal({ open: false, scheduleId: null });
+      await updateScheduleStatus(
+        declineModal.scheduleId, 
+        ScheduleStatus.REJECTED, 
+        declineReason.trim()
+      );
+      setDeclineModal({ open: false, scheduleId: null, role: '', date: '' });
       setDeclineReason('');
     } catch (error) {
       console.error('Error declining schedule:', error);
+      alert('Failed to decline schedule. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAccept = async (scheduleId: string) => {
+    try {
+      await updateScheduleStatus(scheduleId, ScheduleStatus.ACCEPTED);
+    } catch (error) {
+      console.error('Error accepting schedule:', error);
+      alert('Failed to accept schedule. Please try again.');
     }
   };
 
   const handleViewSetlist = (date: string) => {
     navigate(`/setlist?date=${date}`);
+  };
+
+  const closeModal = () => {
+    setDeclineModal({ open: false, scheduleId: null, role: '', date: '' });
+    setDeclineReason('');
   };
 
   return (
@@ -51,12 +93,13 @@ const MusicianSchedule: React.FC = () => {
         {mySchedules.map((item: Schedule) => {
           const serviceDate = fromISODateString(item.date);
           const isPast = serviceDate < new Date();
+          const isPending = item.status === ScheduleStatus.PENDING;
           
           return (
             <div 
               key={item.id} 
-              onClick={() => !isPast && handleViewSetlist(item.date)}
-              className={`bg-[#0a0a0a] border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-white/20 transition-all group ${!isPast ? 'cursor-pointer' : 'opacity-60'}`}
+              onClick={() => !isPast && !isPending && handleViewSetlist(item.date)}
+              className={`bg-[#0a0a0a] border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-white/20 transition-all group ${!isPast && !isPending ? 'cursor-pointer' : ''} ${isPast ? 'opacity-60' : ''}`}
             >
               <div className="flex items-center gap-8">
                 <div className="bg-white/5 border border-white/10 p-5 rounded-3xl text-center min-w-[90px] group-hover:bg-white group-hover:text-black transition-all">
@@ -69,7 +112,7 @@ const MusicianSchedule: React.FC = () => {
                     <span className="flex items-center gap-1.5"><Clock size={12} /> 08:00 Call</span>
                     <span className="flex items-center gap-1.5"><CalendarIcon size={12} /> Sunday Service</span>
                   </div>
-                  {!isPast && (
+                  {!isPast && !isPending && (
                     <p className="text-[10px] text-white/40 mt-2 flex items-center gap-1 group-hover:text-white/60 transition-colors">
                       <Music size={10} /> View Setlist <ChevronRight size={10} />
                     </p>
@@ -78,12 +121,12 @@ const MusicianSchedule: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                {item.status === ScheduleStatus.PENDING ? (
+                {isPending ? (
                   <>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setDeclineModal({ open: true, scheduleId: item.id });
+                        openDeclineModal(item);
                       }}
                       className="px-8 py-3 bg-white/5 border border-white/10 text-white/60 hover:text-red-400 hover:border-red-400/20 rounded-full text-xs font-black uppercase tracking-widest transition-all"
                     >
@@ -92,7 +135,7 @@ const MusicianSchedule: React.FC = () => {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        updateScheduleStatus(item.id, ScheduleStatus.ACCEPTED);
+                        handleAccept(item.id);
                       }}
                       className="px-10 py-3 bg-white text-black hover:scale-105 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                     >
@@ -110,9 +153,12 @@ const MusicianSchedule: React.FC = () => {
                       <span className="text-[10px] font-black uppercase tracking-widest">{item.status}</span>
                     </div>
                     {item.status === ScheduleStatus.REJECTED && item.decline_reason && (
-                      <p className="text-[10px] text-white/40 italic max-w-[200px] text-right">
-                        "{item.decline_reason}"
-                      </p>
+                      <div className="text-right max-w-[250px]">
+                        <p className="text-[9px] text-white/30 uppercase tracking-wider mb-0.5">Reason:</p>
+                        <p className="text-[11px] text-white/50 italic">
+                          "{item.decline_reason}"
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -132,34 +178,42 @@ const MusicianSchedule: React.FC = () => {
       {declineModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-8 max-w-md w-full">
-            <h3 className="text-xl font-black italic mb-2">Decline Schedule</h3>
-            <p className="text-white/40 text-sm mb-6">Please provide a reason for declining this assignment.</p>
+            <h3 className="text-xl font-black italic mb-2">Decline Assignment</h3>
+            <p className="text-white/40 text-sm mb-6">
+              You are declining: <span className="text-white font-bold">{declineModal.role}</span> on{' '}
+              <span className="text-white font-bold">{declineModal.date}</span>
+            </p>
             
+            <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2 block">
+              Reason for declining *
+            </label>
             <textarea
               value={declineReason}
               onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder="e.g., I have a family event, I'm out of town, etc."
-              className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 outline-none resize-none mb-6"
+              placeholder="e.g., I have a family event, I'm out of town, feeling unwell, etc."
+              className="w-full bg-black border border-white/10 rounded-xl p-4 text-sm text-white placeholder:text-white/20 focus:border-white/30 outline-none resize-none mb-2"
               rows={4}
               autoFocus
+              required
             />
+            <p className="text-[10px] text-white/30 mb-6">
+              * This reason will be shared with the admin team
+            </p>
             
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setDeclineModal({ open: false, scheduleId: null });
-                  setDeclineReason('');
-                }}
-                className="flex-1 py-3 border border-white/10 text-white/60 rounded-full text-xs font-black uppercase tracking-widest hover:border-white/30 transition-all"
+                onClick={closeModal}
+                disabled={isSubmitting}
+                className="flex-1 py-3 border border-white/10 text-white/60 rounded-full text-xs font-black uppercase tracking-widest hover:border-white/30 transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDecline}
-                disabled={!declineReason.trim()}
-                className="flex-1 py-3 bg-red-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-red-400 transition-all disabled:opacity-50"
+                disabled={!declineReason.trim() || isSubmitting}
+                className="flex-1 py-3 bg-red-500 text-white rounded-full text-xs font-black uppercase tracking-widest hover:bg-red-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Decline
+                {isSubmitting ? 'Submitting...' : 'Decline'}
               </button>
             </div>
           </div>
