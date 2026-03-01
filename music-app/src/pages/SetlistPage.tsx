@@ -6,18 +6,29 @@ import SongDetailModal from '../components/SongDetailModal';
 import CalendarPicker from '../components/CalendarPicker';
 import { Song, UserRole } from '../types';
 
-// Only 3 categories for setlist
+// 3 categories for setlist organization
 const SETLIST_CATEGORIES = ['Pre-Service', 'Choir', 'Worship'] as const;
 type SetlistCategory = typeof SETLIST_CATEGORIES[number];
+
+interface SetlistItem {
+  song_id: string;
+  category: SetlistCategory;
+  order: number;
+}
+
+interface SongWithAssignment extends Song {
+  assignedCategory: SetlistCategory;
+  order: number;
+}
 
 const SetlistPage: React.FC = () => {
   const { user } = useAuth();
   const { songs, setlists, updateSetlist, loading } = useData();
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<SetlistCategory | 'All'>('All');
+  const [activeTab, setActiveTab] = useState<SetlistCategory>('Worship');
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
+  const [setlistItems, setSetlistItems] = useState<SetlistItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const isAdmin = user?.role === UserRole.ADMIN;
@@ -28,36 +39,72 @@ const SetlistPage: React.FC = () => {
     return setlists.find(s => s.date === selectedDate);
   }, [setlists, selectedDate]);
 
-  // Get songs for selected date
-  const dateSongs = useMemo(() => {
+  // Parse setlist items (support both old string[] and new SetlistItem[])
+  const parsedSetlist = useMemo((): SetlistItem[] => {
     if (!currentSetlist) return [];
-    return songs.filter(s => currentSetlist.song_ids.includes(s.id));
+    
+    return currentSetlist.song_ids.map((item: any, index: number) => {
+      if (typeof item === 'string') {
+        // Old format - convert to new
+        const song = songs.find(s => s.id === item);
+        return {
+          song_id: item,
+          category: (song?.category as SetlistCategory) || 'Worship',
+          order: index
+        };
+      }
+      // New format
+      return item as SetlistItem;
+    });
   }, [currentSetlist, songs]);
 
-  // Group songs by their vault category (for display)
-  const groupedSongs = useMemo(() => {
-    const grouped: Record<string, Song[]> = {};
-    SETLIST_CATEGORIES.forEach(cat => {
-      grouped[cat] = dateSongs.filter(s => s.category === cat);
+  // Get songs with their assigned categories for this date
+  const dateSongs = useMemo((): SongWithAssignment[] => {
+    const result: SongWithAssignment[] = [];
+    
+    parsedSetlist.forEach(item => {
+      const song = songs.find(s => s.id === item.song_id);
+      if (song) {
+        result.push({
+          ...song,
+          assignedCategory: item.category,
+          order: item.order
+        });
+      }
     });
+    
+    return result.sort((a, b) => a.order - b.order);
+  }, [parsedSetlist, songs]);
+
+  // Group by assigned category (for display tabs)
+  const groupedByCategory = useMemo(() => {
+    const grouped: Record<SetlistCategory, SongWithAssignment[]> = {
+      'Pre-Service': [],
+      'Choir': [],
+      'Worship': []
+    };
+    
+    dateSongs.forEach(song => {
+      grouped[song.assignedCategory].push(song);
+    });
+    
+    // Sort each group by order
+    Object.keys(grouped).forEach(key => {
+      grouped[key as SetlistCategory].sort((a, b) => a.order - b.order);
+    });
+    
     return grouped;
   }, [dateSongs]);
 
-  // Filtered songs for admin selection (from vault, filtered by tab)
-  const filteredSongs = useMemo(() => {
-    if (!isEditing || !isAdmin) return [];
-    return songs.filter(song => {
-      // Don't show already selected songs
-      if (selectedSongs.includes(song.id)) return false;
-      
-      if (activeTab === 'All') return true;
-      return song.category === activeTab;
-    });
-  }, [songs, activeTab, isEditing, isAdmin, selectedSongs]);
+  // Available songs for current tab (not already in setlist)
+  const availableSongs = useMemo(() => {
+    const usedSongIds = setlistItems.map(item => item.song_id);
+    return songs.filter(song => !usedSongIds.includes(song.id));
+  }, [songs, setlistItems]);
 
   const handleEdit = () => {
     if (!isAdmin) return;
-    setSelectedSongs(currentSetlist?.song_ids || []);
+    setSetlistItems(parsedSetlist);
     setIsEditing(true);
   };
 
@@ -67,7 +114,11 @@ const SetlistPage: React.FC = () => {
     try {
       await updateSetlist({ 
         date: selectedDate, 
-        song_ids: selectedSongs
+        song_ids: setlistItems.map(item => ({
+          song_id: item.song_id,
+          category: item.category,
+          order: item.order
+        }))
       });
       setIsEditing(false);
     } catch (error) {
@@ -77,12 +128,71 @@ const SetlistPage: React.FC = () => {
     }
   };
 
-  const toggleSong = (songId: string) => {
-    setSelectedSongs(prev => 
-      prev.includes(songId) 
-        ? prev.filter(id => id !== songId)
-        : [...prev, songId]
+  const addSong = (songId: string) => {
+    const newItem: SetlistItem = {
+      song_id: songId,
+      category: activeTab,
+      order: setlistItems.filter(i => i.category === activeTab).length
+    };
+    setSetlistItems([...setlistItems, newItem]);
+  };
+
+  const removeSong = (songId: string, category: SetlistCategory) => {
+    const newItems = setlistItems.filter(
+      item => !(item.song_id === songId && item.category === category)
     );
+    // Recalculate orders for affected category
+    const recalculated = newItems.map(item => {
+      if (item.category === category) {
+        const sameCategory = newItems.filter(i => i.category === category);
+        const newOrder = sameCategory.findIndex(i => i.song_id === item.song_id);
+        return { ...item, order: newOrder };
+      }
+      return item;
+    });
+    setSetlistItems(recalculated);
+  };
+
+  const moveSong = (songId: string, category: SetlistCategory, direction: 'up' | 'down') => {
+    const categoryItems = setlistItems.filter(i => i.category === category);
+    const currentIndex = categoryItems.findIndex(i => i.song_id === songId);
+    
+    if (
+      (direction === 'up' && currentIndex === 0) || 
+      (direction === 'down' && currentIndex === categoryItems.length - 1)
+    ) return;
+
+    const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const currentItem = categoryItems[currentIndex];
+    const swapItem = categoryItems[swapIndex];
+
+    if (!currentItem || !swapItem) return;
+
+    const newItems = setlistItems.map(item => {
+      if (item.song_id === currentItem.song_id && item.category === category) {
+        return { ...item, order: swapItem.order };
+      }
+      if (item.song_id === swapItem.song_id && item.category === category) {
+        return { ...item, order: currentItem.order };
+      }
+      return item;
+    });
+    
+    setSetlistItems(newItems);
+  };
+
+  const changeCategory = (songId: string, oldCategory: SetlistCategory, newCategory: SetlistCategory) => {
+    const newItems = setlistItems.map(item => {
+      if (item.song_id === songId && item.category === oldCategory) {
+        return {
+          ...item,
+          category: newCategory,
+          order: setlistItems.filter(i => i.category === newCategory).length
+        };
+      }
+      return item;
+    });
+    setSetlistItems(newItems);
   };
 
   const formatDate = (dateStr: string) => {
@@ -114,7 +224,7 @@ const SetlistPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Date Selection with Calendar */}
+      {/* Date Selection */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
         <div className="flex flex-col md:flex-row gap-6 items-end">
           <div className="w-full md:w-80 flex-shrink-0">
@@ -163,108 +273,158 @@ const SetlistPage: React.FC = () => {
           <p className="italic">Select a date to view the setlist.</p>
         </div>
       ) : isEditing && isAdmin ? (
-        // Admin Edit Mode with Tabs
+        // EDIT MODE
         <div className="space-y-6">
-          {/* Category Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-2 border-b border-white/5">
-            <button 
-              onClick={() => setActiveTab('All')}
-              className={`px-6 py-2 rounded-full text-xs font-bold transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === 'All' ? 'bg-white text-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-            >
-              All Songs
-            </button>
-            {SETLIST_CATEGORIES.map(cat => (
-              <button 
-                key={cat} 
-                onClick={() => setActiveTab(cat)}
-                className={`px-6 py-2 rounded-full text-xs font-bold transition-all uppercase tracking-widest whitespace-nowrap ${activeTab === cat ? 'bg-white text-black' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Category Tabs for Adding */}
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
+            <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-3 block">
+              Add Songs To Category
+            </label>
+            <div className="flex gap-2">
+              {SETLIST_CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveTab(cat)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
+                    activeTab === cat
+                      ? 'bg-white text-black'
+                      : 'bg-black border border-white/10 text-white/60 hover:border-white/30'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Available Songs */}
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-white/40">
-                {activeTab === 'All' ? 'All Songs' : `${activeTab} Songs`} ({filteredSongs.length})
+                Available Songs ({availableSongs.length})
               </h3>
               <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                {filteredSongs.map(song => {
-                  const isSelected = selectedSongs.includes(song.id);
-                  return (
-                    <button
-                      key={song.id}
-                      onClick={() => toggleSong(song.id)}
-                      className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between ${
-                        isSelected 
-                          ? 'bg-white text-black border-white' 
-                          : 'bg-[#0a0a0a] border-white/10 hover:border-white/30 text-white'
-                      }`}
-                    >
+                {availableSongs.map(song => (
+                  <button
+                    key={song.id}
+                    onClick={() => addSong(song.id)}
+                    className="w-full p-4 bg-[#0a0a0a] border border-white/10 rounded-xl hover:border-white/30 hover:bg-white/[0.02] transition-all text-left group"
+                  >
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-bold text-lg">{song.title}</p>
-                        <p className="text-[10px] uppercase tracking-widest opacity-60 mt-1">
-                          {song.category} • {song.original_key}
+                        <p className="font-bold text-white">{song.title}</p>
+                        <p className="text-[10px] uppercase text-white/40 mt-1">
+                          Vault: {song.category} • Key: {song.original_key}
                         </p>
                       </div>
-                      {isSelected && <Check size={20} />}
-                    </button>
-                  );
-                })}
-                {filteredSongs.length === 0 && (
-                  <p className="text-white/20 text-center py-8 italic">
-                    {activeTab === 'All' ? 'No songs available' : `No ${activeTab} songs in vault`}
-                  </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-white/30 uppercase">
+                          Add to {activeTab}
+                        </span>
+                        <Plus size={18} className="text-white/40 group-hover:text-white" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+                {availableSongs.length === 0 && (
+                  <p className="text-white/20 text-center py-8 italic">All songs have been added</p>
                 )}
               </div>
             </div>
 
-            {/* Selected Songs */}
+            {/* Current Setlist - Grouped by Category */}
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-white/40">
-                Selected Songs ({selectedSongs.length})
+                Current Setlist ({setlistItems.length})
               </h3>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                {selectedSongs.length === 0 ? (
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                {SETLIST_CATEGORIES.map(category => {
+                  const categoryItems = setlistItems
+                    .filter(item => item.category === category)
+                    .sort((a, b) => a.order - b.order);
+                  
+                  if (categoryItems.length === 0) return null;
+
+                  return (
+                    <div key={category} className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
+                      <h4 className="text-[10px] uppercase font-black text-white/40 tracking-widest mb-3 flex items-center justify-between">
+                        {category}
+                        <span className="bg-white/10 px-2 py-1 rounded-full">{categoryItems.length}</span>
+                      </h4>
+                      <div className="space-y-2">
+                        {categoryItems.map((item, idx) => {
+                          const song = songs.find(s => s.id === item.song_id);
+                          if (!song) return null;
+                          
+                          return (
+                            <div 
+                              key={`${item.song_id}-${category}`}
+                              className="flex items-center gap-2 p-3 bg-black border border-white/5 rounded-xl group"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <button 
+                                  onClick={() => moveSong(item.song_id, category, 'up')}
+                                  disabled={idx === 0}
+                                  className="text-white/20 hover:text-white disabled:opacity-10 text-xs"
+                                >
+                                  ▲
+                                </button>
+                                <button 
+                                  onClick={() => moveSong(item.song_id, category, 'down')}
+                                  disabled={idx === categoryItems.length - 1}
+                                  className="text-white/20 hover:text-white disabled:opacity-10 text-xs"
+                                >
+                                  ▼
+                                </button>
+                              </div>
+                              
+                              <span className="text-lg font-black italic text-white/20 w-6 text-center">
+                                {idx + 1}
+                              </span>
+                              
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm truncate text-white">{song.title}</p>
+                                <p className="text-[10px] text-white/40">
+                                  {song.original_key} • Vault: {song.category}
+                                </p>
+                              </div>
+
+                              {/* Change category dropdown */}
+                              <select
+                                value={category}
+                                onChange={(e) => changeCategory(item.song_id, category, e.target.value as SetlistCategory)}
+                                className="bg-black border border-white/10 rounded-lg text-[10px] uppercase py-1 px-2 text-white/60 focus:border-white/30 outline-none"
+                              >
+                                {SETLIST_CATEGORIES.map(cat => (
+                                  <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                              </select>
+
+                              <button
+                                onClick={() => removeSong(item.song_id, category)}
+                                className="p-2 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-colors text-white/40"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {setlistItems.length === 0 && (
                   <div className="text-center py-12 border-2 border-dashed border-white/5 rounded-2xl">
                     <p className="text-white/20 italic text-sm">No songs selected yet.</p>
                   </div>
-                ) : (
-                  selectedSongs.map((songId, index) => {
-                    const song = songs.find(s => s.id === songId);
-                    if (!song) return null;
-                    return (
-                      <div 
-                        key={songId}
-                        className="flex items-center gap-3 p-4 bg-white text-black rounded-2xl"
-                      >
-                        <span className="text-lg font-black italic opacity-40 w-6 text-center">
-                          {index + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold truncate">{song.title}</p>
-                          <p className="text-[10px] uppercase opacity-60">
-                            {song.category} • {song.original_key}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => toggleSong(songId)}
-                          className="p-2 hover:bg-black/10 rounded-lg transition-colors"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    );
-                  })
                 )}
               </div>
             </div>
           </div>
         </div>
       ) : (
-        // View Mode - Grouped by Category Tabs
+        // VIEW MODE - With Tabs
         <div className="space-y-6">
           <h2 className="text-xl font-black italic">
             {formatDate(selectedDate)}
@@ -286,13 +446,14 @@ const SetlistPage: React.FC = () => {
           ) : (
             <div className="space-y-8">
               {SETLIST_CATEGORIES.map(category => {
-                const categorySongs = groupedSongs[category];
+                const categorySongs = groupedByCategory[category];
                 if (categorySongs.length === 0) return null;
 
                 return (
                   <div key={category} className="space-y-4">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white/40 border-b border-white/10 pb-2">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white/40 border-b border-white/10 pb-2 flex items-center justify-between">
                       {category}
+                      <span className="text-white/20 text-xs">{categorySongs.length} songs</span>
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {categorySongs.map((song, index) => (
@@ -326,11 +487,16 @@ const SetlistPage: React.FC = () => {
                             </div>
                           </div>
                           <h3 className="text-base font-bold group-hover:translate-x-1 transition-transform truncate">{song.title}</h3>
-                          {song.tempo && (
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest mt-3 px-2 py-1 bg-white/5 rounded inline-block">
-                              {song.tempo}
-                            </p>
-                          )}
+                          <div className="flex items-center gap-2 mt-3">
+                            <span className="text-[10px] text-white/40 uppercase tracking-widest px-2 py-1 bg-white/5 rounded">
+                              Vault: {song.category}
+                            </span>
+                            {song.tempo && (
+                              <span className="text-[10px] text-white/40 uppercase tracking-widest px-2 py-1 bg-white/5 rounded">
+                                {song.tempo}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

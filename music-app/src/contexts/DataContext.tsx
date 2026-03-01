@@ -13,7 +13,7 @@ interface DataContextType {
   assignMusician: (assignment: { musician_id: string; date: string; role: string }) => Promise<void>;
   removeSchedule: (scheduleId: string) => Promise<void>;
   updateScheduleStatus: (scheduleId: string, status: ScheduleStatus) => Promise<void>;
-  updateSetlist: (setlist: { date: string; song_ids: string[] }) => Promise<void>;
+  updateSetlist: (setlist: { date: string; song_ids: string[] | { song_id: string; category: string; order: number }[] }) => Promise<void>;
   markNotificationsRead: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
@@ -358,7 +358,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateSetlist = async (setlistData: { date: string; song_ids: string[] }) => {
+  const updateSetlist = async (setlistData: { date: string; song_ids: string[] | { song_id: string; category: string; order: number }[] }) =>{
     try {
       const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM setlists WHERE date = ?',
