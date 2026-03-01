@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite' // 1. Add this
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // 2. Add this
-  ],  define: {
-    // Ensure env vars are available
+    tailwindcss(),
+  ],
+  base: '/',
+  define: {
     'process.env': {}
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true
   }
 })
-
