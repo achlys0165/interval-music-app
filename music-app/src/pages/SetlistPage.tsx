@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { Music, ExternalLink, Plus, X, Check, Calendar } from 'lucide-react';
 import SongDetailModal from '../components/SongDetailModal';
 import CalendarPicker from '../components/CalendarPicker';
 import { Song, UserRole } from '../types';
+import { useSearchParams } from 'react-router-dom';
 
 // 3 categories for setlist organization
 const SETLIST_CATEGORIES = ['Pre-Service', 'Choir', 'Worship'] as const;
@@ -24,7 +25,10 @@ interface SongWithAssignment extends Song {
 const SetlistPage: React.FC = () => {
   const { user } = useAuth();
   const { songs, setlists, updateSetlist, loading } = useData();
-  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [searchParams] = useSearchParams();
+  
+  const dateFromUrl = searchParams.get('date');
+  const [selectedDate, setSelectedDate] = useState<string>(dateFromUrl || '');
   const [activeTab, setActiveTab] = useState<SetlistCategory>('Worship');
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -33,19 +37,22 @@ const SetlistPage: React.FC = () => {
 
   const isAdmin = user?.role === UserRole.ADMIN;
 
-  // Get current setlist for selected date
+  useEffect(() => {
+    if (dateFromUrl) {
+      setSelectedDate(dateFromUrl);
+    }
+  }, [dateFromUrl]);
+
   const currentSetlist = useMemo(() => {
     if (!selectedDate) return null;
     return setlists.find(s => s.date === selectedDate);
   }, [setlists, selectedDate]);
 
-  // Parse setlist items (support both old string[] and new SetlistItem[])
   const parsedSetlist = useMemo((): SetlistItem[] => {
     if (!currentSetlist) return [];
     
     return currentSetlist.song_ids.map((item: any, index: number) => {
       if (typeof item === 'string') {
-        // Old format - convert to new
         const song = songs.find(s => s.id === item);
         return {
           song_id: item,
@@ -53,53 +60,50 @@ const SetlistPage: React.FC = () => {
           order: index
         };
       }
-      // New format
       return item as SetlistItem;
     });
   }, [currentSetlist, songs]);
 
-  // Get songs with their assigned categories for this date
-  // Get songs with their assigned categories for this date
-const dateSongs = useMemo((): SongWithAssignment[] => {
-  if (!parsedSetlist.length) return [];
-  
-  return parsedSetlist.reduce<SongWithAssignment[]>((acc, item) => {
-    const song = songs.find(s => s.id === item.song_id);
-    if (song) {
-      acc.push({
-        ...song,
-        assignedCategory: item.category,
-        order: item.order
-      });
-    }
-    return acc;
-  }, []).sort((a, b) => a.order - b.order);
-}, [parsedSetlist, songs]);
+  const dateSongs = useMemo((): SongWithAssignment[] => {
+    if (!parsedSetlist.length) return [];
+    
+    const result: SongWithAssignment[] = [];
+    
+    parsedSetlist.forEach(item => {
+      const song = songs.find(s => s.id === item.song_id);
+      if (song) {
+        result.push({
+          ...song,
+          assignedCategory: item.category,
+          order: item.order
+        });
+      }
+    });
+    
+    return result.sort((a, b) => a.order - b.order);
+  }, [parsedSetlist, songs]);
 
-// Group by assigned category (for display tabs)
-const groupedByCategory = useMemo(() => {
-  const grouped: Record<SetlistCategory, SongWithAssignment[]> = {
-    'Pre-Service': [],
-    'Choir': [],
-    'Worship': []
-  };
-  
-  dateSongs.forEach(song => {
-    const category = song.assignedCategory;
-    if (category && grouped[category]) {
-      grouped[category].push(song);
-    }
-  });
-  
-  // Sort each group by order
-  SETLIST_CATEGORIES.forEach(category => {
-    grouped[category].sort((a, b) => a.order - b.order);
-  });
-  
-  return grouped;
-}, [dateSongs]);
+  const groupedByCategory = useMemo(() => {
+    const grouped: Record<SetlistCategory, SongWithAssignment[]> = {
+      'Pre-Service': [],
+      'Choir': [],
+      'Worship': []
+    };
+    
+    dateSongs.forEach(song => {
+      const category = song.assignedCategory;
+      if (grouped[category]) {
+        grouped[category].push(song);
+      }
+    });
+    
+    SETLIST_CATEGORIES.forEach(category => {
+      grouped[category].sort((a, b) => a.order - b.order);
+    });
+    
+    return grouped;
+  }, [dateSongs]);
 
-  // Available songs for current tab (not already in setlist)
   const availableSongs = useMemo(() => {
     const usedSongIds = setlistItems.map(item => item.song_id);
     return songs.filter(song => !usedSongIds.includes(song.id));
@@ -144,7 +148,6 @@ const groupedByCategory = useMemo(() => {
     const newItems = setlistItems.filter(
       item => !(item.song_id === songId && item.category === category)
     );
-    // Recalculate orders for affected category
     const recalculated = newItems.map(item => {
       if (item.category === category) {
         const sameCategory = newItems.filter(i => i.category === category);
@@ -227,7 +230,6 @@ const groupedByCategory = useMemo(() => {
         </div>
       </header>
 
-      {/* Date Selection */}
       <div className="bg-[#0a0a0a] border border-white/10 rounded-3xl p-6">
         <div className="flex flex-col md:flex-row gap-6 items-end">
           <div className="w-full md:w-80 flex-shrink-0">
@@ -276,9 +278,7 @@ const groupedByCategory = useMemo(() => {
           <p className="italic">Select a date to view the setlist.</p>
         </div>
       ) : isEditing && isAdmin ? (
-        // EDIT MODE
         <div className="space-y-6">
-          {/* Category Tabs for Adding */}
           <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl p-4">
             <label className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-3 block">
               Add Songs To Category
@@ -301,7 +301,6 @@ const groupedByCategory = useMemo(() => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Available Songs */}
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-white/40">
                 Available Songs ({availableSongs.length})
@@ -335,7 +334,6 @@ const groupedByCategory = useMemo(() => {
               </div>
             </div>
 
-            {/* Current Setlist - Grouped by Category */}
             <div className="space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-white/40">
                 Current Setlist ({setlistItems.length})
@@ -392,7 +390,6 @@ const groupedByCategory = useMemo(() => {
                                 </p>
                               </div>
 
-                              {/* Change category dropdown */}
                               <select
                                 value={category}
                                 onChange={(e) => changeCategory(item.song_id, category, e.target.value as SetlistCategory)}
@@ -427,7 +424,6 @@ const groupedByCategory = useMemo(() => {
           </div>
         </div>
       ) : (
-        // VIEW MODE - With Tabs
         <div className="space-y-6">
           <h2 className="text-xl font-black italic">
             {formatDate(selectedDate)}

@@ -12,10 +12,13 @@ interface DataContextType {
   addSong: (song: Omit<Song, 'id' | 'created_at'>) => Promise<void>;
   assignMusician: (assignment: { musician_id: string; date: string; role: string }) => Promise<void>;
   removeSchedule: (scheduleId: string) => Promise<void>;
-  updateScheduleStatus: (scheduleId: string, status: ScheduleStatus) => Promise<void>;
+  updateScheduleStatus: (scheduleId: string, status: ScheduleStatus, declineReason?: string) => Promise<void>;
   updateSetlist: (setlist: { date: string; song_ids: string[] | { song_id: string; category: string; order: number }[] }) => Promise<void>;
   markNotificationsRead: () => Promise<void>;
   refreshData: () => Promise<void>;
+  showNotificationPopup: boolean;
+  latestNotification: Notification | null;
+  dismissNotificationPopup: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -28,6 +31,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [setlists, setSetlists] = useState<Setlist[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
+  const [latestNotification, setLatestNotification] = useState<Notification | null>(null);
+  const [lastCheckedNotificationId, setLastCheckedNotificationId] = useState<string | null>(null);
 
   const fetchSongs = useCallback(async () => {
     try {
@@ -69,6 +76,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         date: row.date,
         role: row.role,
         status: row.status,
+        decline_reason: row.decline_reason,
         created_at: row.created_at,
         musician: row.musician_name ? {
           id: row.musician_id,
@@ -119,11 +127,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         created_at: row.created_at
       }));
       
+      if (typedNotifications.length > 0) {
+        const latest = typedNotifications[0];
+        if (lastCheckedNotificationId && latest.id !== lastCheckedNotificationId && !latest.read) {
+          setLatestNotification(latest);
+          setShowNotificationPopup(true);
+        }
+        setLastCheckedNotificationId(latest.id);
+      }
+      
       setNotifications(typedNotifications);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
-  }, [user]);
+  }, [user, lastCheckedNotificationId]);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [user, fetchNotifications]);
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -198,8 +225,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const assignMusician = async (assignment: { musician_id: string; date: string; role: string }) => {
     try {
-      console.log('Starting assignment for:', assignment);
-  
       const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM schedules WHERE date = ? AND role = ?',
         args: [assignment.date, assignment.role]
@@ -221,7 +246,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ScheduleStatus.PENDING
         ]
       });
-      console.log('Schedule created:', scheduleId);
     
       const notifId = 'notif-' + Date.now();
       try {
@@ -236,15 +260,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             false
           ]
         });
-        console.log('Notification created successfully');
       } catch (notifError) {
         console.error('Notification creation failed:', notifError);
       }
     
       await fetchSchedules();
       await fetchNotifications();
-      console.log('Data refreshed');
-    
     } catch (error) {
       console.error('Error in assignMusician:', error);
       throw error;
@@ -293,15 +314,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus) => {
+  const updateScheduleStatus = async (scheduleId: string, status: ScheduleStatus, declineReason?: string) => {
     try {
-      console.log('Updating schedule status:', scheduleId, status);
-      
       await turso.execute({
-        sql: 'UPDATE schedules SET status = ? WHERE id = ?',
-        args: [status, scheduleId]
+        sql: 'UPDATE schedules SET status = ?, decline_reason = ? WHERE id = ?',
+        args: [status, declineReason || null, scheduleId]
       });
-      console.log('Schedule status updated');
       
       const { rows } = await turso.execute({
         sql: `SELECT s.*, u.name as musician_name, u.id as musician_id 
@@ -312,23 +330,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (rows.length === 0) {
-        console.error('Schedule not found:', scheduleId);
         throw new Error('Schedule not found');
       }
       
       const schedule = rows[0] as any;
-      console.log('Schedule details:', schedule);
       
       const { rows: admins } = await turso.execute({
         sql: 'SELECT id FROM users WHERE role = ?',
         args: ['admin']
       });
       
-      console.log('Found admins:', admins.length);
-      
       for (const admin of admins) {
         const adminId = (admin as any).id;
         const notifId = 'notif-' + Date.now() + '-' + adminId;
+        
+        let message = `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`;
+        if (status === ScheduleStatus.REJECTED && declineReason) {
+          message += `. Reason: ${declineReason}`;
+        }
         
         try {
           await turso.execute({
@@ -337,12 +356,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             args: [
               notifId,
               adminId,
-              `${schedule.musician_name} ${status} the assignment for ${schedule.role} on ${schedule.date}`,
+              message,
               'info',
               false
             ]
           });
-          console.log('Admin notification created for:', adminId);
         } catch (notifError) {
           console.error('Failed to create admin notification:', notifError);
         }
@@ -350,15 +368,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await fetchSchedules();
       await fetchNotifications();
-      console.log('Status update complete');
-      
     } catch (error) {
       console.error('Error in updateScheduleStatus:', error);
       throw error;
     }
   };
 
-  const updateSetlist = async (setlistData: { date: string; song_ids: string[] | { song_id: string; category: string; order: number }[] }) =>{
+  const updateSetlist = async (setlistData: { 
+    date: string; 
+    song_ids: string[] | { song_id: string; category: string; order: number }[] 
+  }) => {
     try {
       const { rows: existing } = await turso.execute({
         sql: 'SELECT id FROM setlists WHERE date = ?',
@@ -404,6 +423,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const dismissNotificationPopup = () => {
+    setShowNotificationPopup(false);
+    setLatestNotification(null);
+  };
+
   const value: DataContextType = {
     songs,
     schedules,
@@ -416,7 +440,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updateScheduleStatus,
     updateSetlist,
     markNotificationsRead,
-    refreshData
+    refreshData,
+    showNotificationPopup,
+    latestNotification,
+    dismissNotificationPopup
   };
 
   return (
