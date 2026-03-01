@@ -6,7 +6,7 @@ import { DataProvider } from './contexts/DataContext';
 // Layout
 import Layout from './components/Layout';
 
-// Pages - All in pages/ directory (flat structure)
+// Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -32,7 +32,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (adminOnly && user.role !== 'admin') {
@@ -51,7 +51,7 @@ const ProtectedLayout: React.FC<{ adminOnly?: boolean }> = ({ adminOnly = false 
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (adminOnly && user.role !== 'admin') {
@@ -65,12 +65,27 @@ const ProtectedLayout: React.FC<{ adminOnly?: boolean }> = ({ adminOnly = false 
   );
 };
 
+// Public Route - redirects to dashboard if already logged in
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+  }
+
+  if (user) {
+    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Public Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* Public Routes - Login at root "/" */}
+      <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       
       {/* Musician Routes */}
       <Route element={<ProtectedLayout />}>
@@ -82,15 +97,15 @@ const AppRoutes: React.FC = () => {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
-      {/* Admin Routes - Using URL paths, NOT file directories */}
+      {/* Admin Routes */}
       <Route element={<ProtectedLayout adminOnly />}>
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin-schedule" element={<AdminSchedule />} /> {/* Flat URL */}
-        <Route path="/admin-songs" element={<AdminSongs />} /> {/* Flat URL */}
+        <Route path="/admin-schedule" element={<AdminSchedule />} />
+        <Route path="/admin-songs" element={<AdminSongs />} />
       </Route>
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Catch all - redirect to root */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
