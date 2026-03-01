@@ -208,28 +208,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Notification Popup */}
+      {/* Mobile-Friendly Notification Popup */}
       {showNotificationPopup && latestNotification && (
-        <div className="fixed top-20 right-4 z-[60] max-w-sm w-full animate-slide-in-right">
-          <div className="bg-[#0a0a0a] border border-white/20 rounded-2xl p-4 shadow-2xl shadow-white/10">
+        <div className="fixed top-16 sm:top-20 left-4 right-4 sm:left-auto sm:right-4 z-[60] animate-slide-in-right">
+          <div className="bg-[#0a0a0a] border border-white/20 rounded-2xl p-4 shadow-2xl shadow-white/10 max-w-sm sm:w-80 mx-auto sm:mx-0">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-white/10 rounded-xl">
-                <Bell size={20} className="text-white" />
+              <div className="p-2 bg-white/10 rounded-xl shrink-0">
+                <Bell size={18} className="text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black uppercase tracking-widest text-white/40 mb-1">New Notification</p>
-                <p className="text-sm font-bold text-white leading-tight line-clamp-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">New Notification</p>
+                  <button 
+                    onClick={dismissNotificationPopup}
+                    className="p-1 text-white/40 hover:text-white transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <p className="text-sm font-bold text-white leading-tight">
                   {latestNotification.message}
                 </p>
                 <p className="text-[10px] text-white/30 mt-1">
-                  {new Date(latestNotification.created_at).toLocaleTimeString()}
+                  {new Date(latestNotification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
-              <button 
-                onClick={dismissNotificationPopup}
-                className="p-1 text-white/40 hover:text-white transition-colors"
-              >
-                <X size={16} />
-              </button>
             </div>
           </div>
         </div>
